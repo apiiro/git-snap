@@ -43,6 +43,38 @@ go test -tags bench ./...
 go build -o git-snap .
 ```
 
+## Benchamrk results
+
+Running on 16 cores (relevant only for git-snap)
+
+```
++----------------------+-----------------------+------------+-----------------+
+|      Repository      |        Action         | Time (sec) |   Performance   |
++----------------------+-----------------------+------------+-----------------+
+| EVO-Exchange-BE-2019 | git-archive           |       0.05 | baseline        |
+| EVO-Exchange-BE-2019 | git-archive + tar -x  |       0.13 | x2.6            |
+| EVO-Exchange-BE-2019 | git-worktree-checkout |      0.096 | x1.9            |
+| EVO-Exchange-BE-2019 | git-snap              |      0.075 | x1.5            |
+| EVO-Exchange-BE-2019 | git-snap (**/*.java)  |      0.032 | x0.64 (faster!) |
+| elasticsearch        | git-archive           |       1.86 | baseline        |
+| elasticsearch        | git-archive + tar -x  |       7.92 | x4.25           |
+| elasticsearch        | git-worktree-checkout |       6.71 | x3.6            |
+| elasticsearch        | git-snap              |       6.31 | x3.4            |
+| elasticsearch        | git-snap (**/*.java)  |        5.3 | x2.85           |
++----------------------+-----------------------+------------+-----------------+
+```
+
+Legend:
+
+```bash
+git-archive -->
+  git archive <commitish> -o <output>
+git-archive + tar -x -->
+  git archive <commitish> | tar -x -C <output>
+git-worktree-checkout -->
+  git --work-tree <output> checkout <commitish> -f -q -- ./
+```
+
 ### Credits
 
 <div>Icons made by <a href="https://www.freepik.com" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a></div>
