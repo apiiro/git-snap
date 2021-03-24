@@ -2,6 +2,8 @@
 
 Tool to create a git revision snapshot for an existing repository clone.
 
+![icon](git-snap.png)
+
 ```
 NAME:
    git-snap - 1.0 - Create a git revision snapshot for an existing repository clone.
