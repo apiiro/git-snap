@@ -18,7 +18,7 @@ OPTIONS:
    --out value, -o value      output directory. will be created if does not exist
    --include value, -i value  patterns of file paths to include, comma delimited, may contain any glob pattern
    --exclude value, -e value  patterns of file paths to exclude, comma delimited, may contain any glob pattern
-   --shortsha                 support short-sha Revision (default: false)
+   --shortsha                 support short-sha revision (default: false)
    --help, -h                 show help (default: false)
    --version, -v              print the version (default: false)
 
@@ -43,7 +43,7 @@ go test -tags bench ./...
 go build -o git-snap .
 ```
 
-## Benchamrk results
+## Benchmark results
 
 Running on 16 cores (relevant only for git-snap)
 

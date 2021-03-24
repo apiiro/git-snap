@@ -43,7 +43,7 @@ var Flags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:     "shortsha",
 		Value:    false,
-		Usage:    "support short-sha Revision",
+		Usage:    "support short-sha revision",
 		Required: false,
 	},
 }
