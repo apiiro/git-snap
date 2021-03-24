@@ -33,6 +33,10 @@ git-snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --inc
 ## Test and Build
 
 ```bash
+# run tests:
 go test ./...
+# run benchmark
+go test -tags bench ./...
+# build executable
 go build -o git-snap .
 ```

@@ -22,27 +22,29 @@ func TestGitTestSuite(t *testing.T) {
 	suite.Run(t, new(gitTestSuite))
 }
 
-func cloneLocal(remote string) (clonePath string, err error) {
+func cloneLocal(remote string) (clonePath string) {
+	var err error
 	clonePath, err = ioutil.TempDir("", "")
 	if err != nil {
-		return
+		panic(err)
 	}
 	proc := exec.Command("git", "clone", "--no-checkout", remote, clonePath)
 	err = proc.Start()
 	if err != nil {
-		return
+		panic(err)
 	}
 	err = proc.Wait()
+	if err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (gitSuite *gitTestSuite) SetupTest() {
 	gitSuite.remote = "https://github.com/apiirolab/dc-heacth.git"
-	clonePath, err := cloneLocal(gitSuite.remote)
-	if err != nil {
-		panic(err)
-	}
+	clonePath := cloneLocal(gitSuite.remote)
 	gitSuite.clonePath = clonePath
+	var err error
 	gitSuite.outputPath, err = ioutil.TempDir("", "")
 	if err != nil {
 		panic(err)
