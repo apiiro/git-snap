@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 	"git-snap/options"
+	"git-snap/parallel"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -12,6 +13,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -55,9 +57,9 @@ func Snapshot(opts *options.Options) (err error) {
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 
-	writtenFiles, err := provider.snapshot(commit, opts.OutputPath)
-	if writtenFiles > 0 || err == nil {
-		log.Printf("written %v files to target path '%v'", writtenFiles, opts.OutputPath)
+	err = provider.snapshot(commit, opts.OutputPath)
+	if err == nil {
+		log.Printf("written files to target path '%v'", opts.OutputPath)
 	}
 	return err
 }
@@ -119,54 +121,73 @@ func matches(filePath string, patterns []glob.Glob) bool {
 	return false
 }
 
-func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) (int, error) {
+func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object.File, outputPath string) error {
+	mode := file.Mode
+	if !mode.IsFile() || mode.IsMalformed() || !mode.IsRegular() {
+		return nil
+	}
+
+	filePath := file.Name
+
+	if file.Size >= MAX_FSIZE_BYTES {
+		log.Printf("file size is too large to snapshot - %v at %v/%v", file.Size, commit.ID(), filePath)
+		return nil
+	}
+
+	if len(provider.includePatterns) > 0 && !matches(filePath, provider.includePatterns) {
+		return nil
+	}
+
+	if len(provider.excludePatterns) > 0 && matches(filePath, provider.excludePatterns) {
+		return nil
+	}
+
+	targetFilePath := filepath.Join(outputPath, filePath)
+	targetDirectoryPath := filepath.Dir(targetFilePath)
+	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
+	if err != nil {
+		return err
+	}
+
+	var contents string
+	contents, err = file.Contents()
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(targetFilePath, []byte(contents), TARGET_PERMISSIONS)
+	return err
+}
+
+func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) error {
 
 	tree, err := commit.Tree()
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	writtenFiles := 0
+	queue := parallel.CreateJobQueue(1024, runtime.NumCPU())
+	defer queue.Close()
+
+	var internalError error
 	err = tree.Files().ForEach(func(file *object.File) error {
-
-		mode := file.Mode
-		if !mode.IsFile() || mode.IsMalformed() || !mode.IsRegular() {
-			return nil
-		}
-
-		filePath := file.Name
-
-		if file.Size >= MAX_FSIZE_BYTES {
-			log.Printf("file size is too large to snapshot - %v at %v/%v", file.Size, commit.ID(), filePath)
-			return nil
-		}
-
-		if len(provider.includePatterns) > 0 && !matches(filePath, provider.includePatterns) {
-			return nil
-		}
-
-		if len(provider.excludePatterns) > 0 && matches(filePath, provider.excludePatterns) {
-			return nil
-		}
-
-		targetFilePath := filepath.Join(outputPath, filePath)
-		targetDirectoryPath := filepath.Dir(targetFilePath)
-		err = os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
-		if err != nil {
-			return err
-		}
-
-		var contents string
-		contents, err = file.Contents()
-		if err != nil {
-			return err
-		}
-		err = ioutil.WriteFile(targetFilePath, []byte(contents), TARGET_PERMISSIONS)
-		if err == nil {
-			writtenFiles++
-		}
-
-		return err
+		return queue.Add(func() {
+			err := provider.dumpFile(commit, file, outputPath)
+			if err != nil {
+				internalError = err
+			}
+		})
 	})
-	return writtenFiles, err
+	if err != nil {
+		return err
+	}
+
+	err = queue.Wait()
+	if err != nil {
+		return err
+	}
+
+	if internalError != nil {
+		return internalError
+	}
+	return nil
 }
