@@ -4,7 +4,7 @@ package git
 
 import (
 	"fmt"
-	"git-snap/options"
+	"gitsnap/options"
 	"io/ioutil"
 	"log"
 	"os"

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"git-snap/git"
-	"git-snap/options"
 	"github.com/urfave/cli/v2"
+	"gitsnap/git"
+	"gitsnap/options"
 	"log"
 	"os"
 )

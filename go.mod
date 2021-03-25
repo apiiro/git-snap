@@ -1,4 +1,4 @@
-module git-snap
+module gitsnap
 
 go 1.14
 

@@ -1,8 +1,8 @@
 package git
 
 import (
-	"git-snap/options"
 	"github.com/stretchr/testify/suite"
+	"gitsnap/options"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -172,9 +172,9 @@ func (gitSuite *gitTestSuite) TestSnapshotForBranchName() {
 
 func (gitSuite *gitTestSuite) TestSnapshotWithIncludePattern() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
-		OutputPath:      gitSuite.outputPath,
+		ClonePath:  gitSuite.clonePath,
+		Revision:   "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath: gitSuite.outputPath,
 		IncludePatterns: []string{
 			"**/*.java",
 		},
@@ -190,9 +190,9 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIncludePattern() {
 
 func (gitSuite *gitTestSuite) TestSnapshotWithIncludePatterns() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
-		OutputPath:      gitSuite.outputPath,
+		ClonePath:  gitSuite.clonePath,
+		Revision:   "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath: gitSuite.outputPath,
 		IncludePatterns: []string{
 			"**/*.java",
 			"pom.xml",
@@ -246,9 +246,9 @@ func (gitSuite *gitTestSuite) TestSnapshotWithExcludePatterns() {
 
 func (gitSuite *gitTestSuite) TestSnapshotWithAllPatterns() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
-		OutputPath:      gitSuite.outputPath,
+		ClonePath:  gitSuite.clonePath,
+		Revision:   "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath: gitSuite.outputPath,
 		IncludePatterns: []string{
 			"**/*.java",
 		},

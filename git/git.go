@@ -2,13 +2,13 @@ package git
 
 import (
 	"fmt"
-	"git-snap/options"
-	"git-snap/parallel"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/gobwas/glob"
+	"gitsnap/options"
+	"gitsnap/parallel"
 	"io/ioutil"
 	"log"
 	"os"

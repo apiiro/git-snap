@@ -27,9 +27,9 @@ OPTIONS:
 ## Examples
 
 ```bash
-git-snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master
-git-snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
-git-snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
+gitsnap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master
+gitsnap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
+gitsnap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
 ```
 
 ## Test and Build
@@ -40,12 +40,12 @@ go test ./...
 # run benchmark
 go test -tags bench ./...
 # build executable
-go build -o git-snap .
+go build -o gitsnap .
 ```
 
 ## Benchmark results
 
-Running on 16 cores (relevant only for git-snap)
+Running on 16 cores (relevant only for gitsnap)
 
 ```
 +----------------------+-----------------------+------------+-----------------+
@@ -54,13 +54,13 @@ Running on 16 cores (relevant only for git-snap)
 | EVO-Exchange-BE-2019 | git-archive           |       0.05 | baseline        |
 | EVO-Exchange-BE-2019 | git-archive + tar -x  |       0.13 | x2.6            |
 | EVO-Exchange-BE-2019 | git-worktree-checkout |      0.096 | x1.9            |
-| EVO-Exchange-BE-2019 | git-snap              |      0.075 | x1.5            |
-| EVO-Exchange-BE-2019 | git-snap (**/*.java)  |      0.032 | x0.64 (faster!) |
+| EVO-Exchange-BE-2019 | gitsnap               |      0.075 | x1.5            |
+| EVO-Exchange-BE-2019 | gitsnap (**/*.java)   |      0.032 | x0.64 (faster!) |
 | elasticsearch        | git-archive           |       1.86 | baseline        |
 | elasticsearch        | git-archive + tar -x  |       7.92 | x4.25           |
 | elasticsearch        | git-worktree-checkout |       6.71 | x3.6            |
-| elasticsearch        | git-snap              |       6.31 | x3.4            |
-| elasticsearch        | git-snap (**/*.java)  |        5.3 | x2.85           |
+| elasticsearch        | gitsnap               |       6.31 | x3.4            |
+| elasticsearch        | gitsnap (**/*.java)   |        5.3 | x2.85           |
 +----------------------+-----------------------+------------+-----------------+
 ```
 
