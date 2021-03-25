@@ -39,3 +39,6 @@ verify-binaries:
 
 compress-bin:
 	find bin -type f -print -exec zip '{}'.zip '{}' \;
+
+benchmark:
+	go test -tags bench ./...

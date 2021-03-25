@@ -36,11 +36,11 @@ gitsnap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --incl
 
 ```bash
 # run tests:
-go test ./...
+make test
 # run benchmark
-go test -tags bench ./...
-# build executable
-go build -o gitsnap .
+make benchmark
+# build binaries and run whole ci flow
+make
 ```
 
 ## Benchmark results
