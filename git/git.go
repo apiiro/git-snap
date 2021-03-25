@@ -8,7 +8,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/gobwas/glob"
 	"gitsnap/options"
-	"gitsnap/parallel"
+	"github.com/shomali11/parallelizer"
 	"io/ioutil"
 	"log"
 	"os"
@@ -165,7 +165,10 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 		return err
 	}
 
-	queue := parallel.CreateJobQueue(1024, runtime.NumCPU())
+	queue := parallelizer.NewGroup(func(groupOptions *parallelizer.GroupOptions) {
+		groupOptions.PoolSize = runtime.NumCPU()
+		groupOptions.JobQueueSize = 1024
+	})
 	defer queue.Close()
 
 	var internalError error

@@ -53,8 +53,8 @@ github.com/russross/blackfriday/v2 v2.0.1 h1:lPqVAte+HuHNfhJ/0LC98ESWRz8afy9tM/0
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/sergi/go-diff v1.1.0 h1:we8PVUC3FE2uYfodKH/nBHMSetSfHDR6scGdBi+erh0=
 github.com/sergi/go-diff v1.1.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
-github.com/shomali11/parallelizer v0.0.0-20190608135158-50acdcb89dff h1:TWSeVr8/d0rNynuyQpjWaedLLG4k6zuYWOhUbaAGYPw=
-github.com/shomali11/parallelizer v0.0.0-20190608135158-50acdcb89dff/go.mod h1:/8eq5hZANkqFnnt8ja0/0Tq5I7y242QrmdyOg241Pgs=
+github.com/shomali11/parallelizer v0.0.0-20210324142433-ae8e5504ab47 h1:GpxPH9xfMyCOa8cCVMicLdpa1FFONydnk7WmJ8ATbeU=
+github.com/shomali11/parallelizer v0.0.0-20210324142433-ae8e5504ab47/go.mod h1:/8eq5hZANkqFnnt8ja0/0Tq5I7y242QrmdyOg241Pgs=
 github.com/shurcooL/sanitized_anchor_name v1.0.0 h1:PdmoCO6wvbs+7yrJyMORt4/BmY5IYyJwS/kOiWx8mHo=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
