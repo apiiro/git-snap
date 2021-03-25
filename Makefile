@@ -5,7 +5,7 @@ BINARY_NAME=gitsnap
 
 .PHONY: all test build vendor
 
-all: vet lint test clean build verify-binaries
+all: vet lint test clean build verify-binaries compress-bin
 
 build: build-osx build-linux
 
@@ -36,3 +36,6 @@ verify-binaries:
 	docker run --rm -v $(shell pwd)/bin:/app -w /app alpine /app/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux --version
 	docker run --rm -v $(shell pwd)/bin:/app -w /app debian:buster /app/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux --version
 	docker run --rm -v $(shell pwd)/bin:/app -w /app centos:8 /app/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux --version
+
+compress-bin:
+	find bin -type f -print -exec zip '{}'.zip '{}' \;
