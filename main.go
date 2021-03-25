@@ -25,7 +25,7 @@ OPTIONS:
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	app := &cli.App{
-		Name:    "git-snap",
+		Name:    "gitsnap",
 		Usage:   "Create a git revision snapshot for an existing repository clone.\n                    Symbolic link files will be omitted.",
 		Flags:   options.Flags,
 		Version: VERSION,
