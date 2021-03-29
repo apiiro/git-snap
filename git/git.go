@@ -10,11 +10,13 @@ import (
 	"github.com/shomali11/parallelizer"
 	"gitsnap/options"
 	"gitsnap/util"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 )
 
 const (
@@ -27,6 +29,7 @@ type repositoryProvider struct {
 	includePatterns []glob.Glob
 	excludePatterns []glob.Glob
 	opts            *options.Options
+	mutex           *sync.Mutex
 }
 
 func Snapshot(opts *options.Options) (err error) {
@@ -44,6 +47,7 @@ func Snapshot(opts *options.Options) (err error) {
 		includePatterns: includePatterns,
 		excludePatterns: excludePatterns,
 		opts:            opts,
+		mutex:           &sync.Mutex{},
 	}
 	provider.repository, err = git.PlainOpen(opts.ClonePath)
 	if err != nil {
@@ -165,7 +169,7 @@ func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object
 	}
 
 	var contents string
-	contents, err = file.Contents()
+	contents, err = provider.getFileContents(file)
 	if err != nil {
 		return err
 	}
@@ -186,12 +190,13 @@ func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object
 	return err
 }
 
-func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) error {
+func (provider *repositoryProvider) getFileContents(file *object.File) (string, error) {
+	provider.mutex.Lock()
+	defer provider.mutex.Unlock()
+	return file.Contents()
+}
 
-	tree, err := commit.Tree()
-	if err != nil {
-		return err
-	}
+func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) error {
 
 	queue := parallelizer.NewGroup(func(groupOptions *parallelizer.GroupOptions) {
 		groupOptions.PoolSize = runtime.NumCPU()
@@ -199,15 +204,8 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 	})
 	defer queue.Close()
 
-	var internalError error
-	err = tree.Files().ForEach(func(file *object.File) error {
-		return queue.Add(func() {
-			err := provider.dumpFile(commit, file, outputPath)
-			if err != nil {
-				internalError = err
-			}
-		})
-	})
+	err := provider.iterateFiles(commit, outputPath)
+
 	if err != nil {
 		return err
 	}
@@ -217,8 +215,35 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 		return err
 	}
 
-	if internalError != nil {
-		return internalError
-	}
 	return nil
+}
+
+func (provider *repositoryProvider) iterateFiles(commit *object.Commit, outputPath string) error {
+	tree, err := commit.Tree()
+	if err != nil {
+		return err
+	}
+	iter := tree.Files()
+	defer iter.Close()
+	for {
+		var file *object.File
+		provider.mutex.Lock()
+		file, err = iter.Next()
+		provider.mutex.Unlock()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+
+			return err
+		}
+
+		if err = provider.dumpFile(commit, file, outputPath); err != nil {
+			if err == storer.ErrStop {
+				return nil
+			}
+
+			return err
+		}
+	}
 }
