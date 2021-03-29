@@ -38,9 +38,22 @@ EXIT CODES:
 ## Examples
 
 ```bash
-gitsnap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master
-gitsnap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
-gitsnap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
+git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master
+git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
+git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
+```
+
+## Install
+
+```bash
+curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh | bash
+```
+
+then run with either:
+
+```bash
+git-snap -h
+git snap -h
 ```
 
 ## Test and Build

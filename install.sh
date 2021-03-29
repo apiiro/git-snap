@@ -3,7 +3,8 @@
 # USAGE: ./install.sh
 # will install the latest tool executable to your /usr/local/bin
 
-pushd $TMPDIR
+TMPDIR=${TMPDIR:-"/tmp"}
+pushd "$TMPDIR"
   mkdir -p gitsnap
   pushd gitsnap
     distro=$(if [[ "`uname -s`" == "Darwin" ]]; then echo "osx"; else echo "linux"; fi)

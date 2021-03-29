@@ -38,7 +38,7 @@ verify-binaries:
 	docker run --rm -v $(shell pwd)/bin:/app -w /app centos:8 /app/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux --version
 
 compress-bin:
-	find bin -type f -print -exec zip '{}'.zip '{}' \;
+	find bin -type f -print -exec zip -j '{}'.zip '{}' \;
 
 benchmark:
 	go test -tags bench ./...
