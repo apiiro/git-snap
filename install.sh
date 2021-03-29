@@ -3,6 +3,8 @@
 # USAGE: ./install.sh
 # will install the latest tool executable to your /usr/local/bin
 
+set -e
+
 TMPDIR=${TMPDIR:-"/tmp"}
 pushd "$TMPDIR"
   mkdir -p gitsnap
