@@ -13,7 +13,7 @@ pushd "$TMPDIR"
     curl -s https://api.github.com/repos/apiiro/git-snap/releases/latest | grep "browser_download_url.*$distro.zip" | cut -d : -f 2,3 | tr -d \" | xargs curl -sSL -o gitsnap.zip
     unzip gitsnap.zip
     chmod +x gitsnap-*
-    cp -nf gitsnap-* /usr/local/bin/git-snap
+    cp -f gitsnap-* /usr/local/bin/git-snap
   popd
   rm -rf gitsnap
 popd
