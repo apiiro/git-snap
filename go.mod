@@ -8,4 +8,5 @@ require (
 	github.com/shomali11/parallelizer v0.0.0-20210324142433-ae8e5504ab47
 	github.com/stretchr/testify v1.4.0
 	github.com/urfave/cli/v2 v2.3.0
+	golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e
 )

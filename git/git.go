@@ -7,8 +7,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/gobwas/glob"
-	"gitsnap/options"
 	"github.com/shomali11/parallelizer"
+	"gitsnap/options"
+	"golang.org/x/tools/godoc/util"
 	"io/ioutil"
 	"log"
 	"os"
@@ -17,16 +18,15 @@ import (
 )
 
 const (
-	MAX_FSIZE_MB       int64 = 6
-	MAX_FSIZE_BYTES          = MAX_FSIZE_MB * 1024 * 1024
-	SHORT_SHA_LENGTH         = 7
-	TARGET_PERMISSIONS       = 0777
+	SHORT_SHA_LENGTH   = 7
+	TARGET_PERMISSIONS = 0777
 )
 
 type repositoryProvider struct {
 	repository      *git.Repository
 	includePatterns []glob.Glob
 	excludePatterns []glob.Glob
+	opts            *options.Options
 }
 
 func Snapshot(opts *options.Options) (err error) {
@@ -43,6 +43,7 @@ func Snapshot(opts *options.Options) (err error) {
 	provider := &repositoryProvider{
 		includePatterns: includePatterns,
 		excludePatterns: excludePatterns,
+		opts:            opts,
 	}
 	provider.repository, err = git.PlainOpen(opts.ClonePath)
 	if err != nil {
@@ -121,24 +122,33 @@ func matches(filePath string, patterns []glob.Glob) bool {
 	return false
 }
 
+func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) {
+	if provider.opts.VerboseLogging {
+		log.Printf(format, v...)
+	}
+}
+
 func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object.File, outputPath string) error {
+	filePath := file.Name
+
 	mode := file.Mode
 	if !mode.IsFile() || mode.IsMalformed() || !mode.IsRegular() {
+		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
 		return nil
 	}
 
-	filePath := file.Name
-
-	if file.Size >= MAX_FSIZE_BYTES {
-		log.Printf("file size is too large to snapshot - %v at %v/%v", file.Size, commit.ID(), filePath)
+	if file.Size >= provider.opts.MaxFileSizeBytes {
+		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", filePath, file.Size)
 		return nil
 	}
 
 	if len(provider.includePatterns) > 0 && !matches(filePath, provider.includePatterns) {
+		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
 		return nil
 	}
 
 	if len(provider.excludePatterns) > 0 && matches(filePath, provider.excludePatterns) {
+		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
 		return nil
 	}
 
@@ -154,7 +164,25 @@ func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(targetFilePath, []byte(contents), TARGET_PERMISSIONS)
+
+	contentsBytes := []byte(contents)
+
+	if provider.opts.TextFilesOnly && !util.IsText(contentsBytes) {
+		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
+		return nil
+	}
+
+	err = ioutil.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
+	if err != nil {
+		return err
+	}
+
+	provider.verboseLog("+++ '%v' to '%v'", filePath, targetFilePath)
+
+	if provider.opts.CreateHashMarkers {
+		err = ioutil.WriteFile(fmt.Sprintf("%v.hash", targetFilePath), []byte(file.Hash.String()), TARGET_PERMISSIONS)
+	}
+
 	return err
 }
 

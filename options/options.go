@@ -41,20 +41,49 @@ var Flags = []cli.Flag{
 		Required: false,
 	},
 	&cli.BoolFlag{
-		Name:     "shortsha",
+		Name:     "verbose",
+		Aliases:  []string{"vv"},
+		Value:    false,
+		Usage:    "verbose logging",
+		Required: false,
+	},
+	&cli.BoolFlag{
+		Name:     "short-sha",
 		Value:    false,
 		Usage:    "support short-sha revision",
+		Required: false,
+	},
+	&cli.BoolFlag{
+		Name:     "text-only",
+		Value:    false,
+		Usage:    "include only text files",
+		Required: false,
+	},
+	&cli.BoolFlag{
+		Name:     "hash-markers",
+		Value:    false,
+		Usage:    "create also hint files mirroring the hash of original files at <path>.hash",
+		Required: false,
+	},
+	&cli.IntFlag{
+		Name:     "max-size",
+		Value:    6,
+		Usage:    "maximal file size, in MB",
 		Required: false,
 	},
 }
 
 type Options struct {
-	ClonePath       string
-	Revision        string
-	OutputPath      string
-	IncludePatterns []string
-	ExcludePatterns []string
-	SupportShortSha bool
+	ClonePath         string
+	Revision          string
+	OutputPath        string
+	IncludePatterns   []string
+	ExcludePatterns   []string
+	VerboseLogging    bool
+	SupportShortSha   bool
+	TextFilesOnly     bool
+	CreateHashMarkers bool
+	MaxFileSizeBytes  int64
 }
 
 func splitListFlag(flag string) []string {
@@ -87,12 +116,16 @@ func validateDirectory(dirPath string, createIfNotExist bool) error {
 
 func ParseOptions(c *cli.Context) (*Options, error) {
 	opts := &Options{
-		ClonePath:       c.String("src"),
-		Revision:        c.String("rev"),
-		OutputPath:      c.String("out"),
-		IncludePatterns: splitListFlag(c.String("include")),
-		ExcludePatterns: splitListFlag(c.String("exclude")),
-		SupportShortSha: c.Bool("shortsha"),
+		ClonePath:         c.String("src"),
+		Revision:          c.String("rev"),
+		OutputPath:        c.String("out"),
+		IncludePatterns:   splitListFlag(c.String("include")),
+		ExcludePatterns:   splitListFlag(c.String("exclude")),
+		VerboseLogging:    c.Bool("verbose"),
+		SupportShortSha:   c.Bool("short-sha"),
+		TextFilesOnly:     c.Bool("text-only"),
+		CreateHashMarkers: c.Bool("hash-markers"),
+		MaxFileSizeBytes:  int64(c.Int("max-size")) * 1024 * 1024,
 	}
 	err := validateDirectory(opts.ClonePath, false)
 	if err == nil {

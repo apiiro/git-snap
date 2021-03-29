@@ -65,7 +65,7 @@ func (gitSuite *gitTestSuite) verifyOutputPath(
 	expectedMaxFileSize int,
 ) {
 	fileCount, dirCount := 0, 0
-	minFileSize, maxFileSize := int(MAX_FSIZE_BYTES), 0
+	minFileSize, maxFileSize := 6*1024*1024, 0
 	err := filepath.Walk(gitSuite.outputPath, func(path string, info fs.FileInfo, err error) error {
 		gitSuite.NotNil(info, "missing info for %v", path)
 		if info.IsDir() {
@@ -96,12 +96,16 @@ func (gitSuite *gitTestSuite) verifyOutputPath(
 
 func (gitSuite *gitTestSuite) TestSnapshotForRegularCommit() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
-		OutputPath:      gitSuite.outputPath,
-		IncludePatterns: []string{},
-		ExcludePatterns: []string{},
-		SupportShortSha: false,
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -112,24 +116,32 @@ func (gitSuite *gitTestSuite) TestSnapshotForRegularCommit() {
 
 func (gitSuite *gitTestSuite) TestSnapshotNonExistingRevision() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "wat",
-		OutputPath:      gitSuite.outputPath,
-		IncludePatterns: []string{},
-		ExcludePatterns: []string{},
-		SupportShortSha: false,
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "wat",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.NotNil(err)
 }
 
 func (gitSuite *gitTestSuite) TestSnapshotForShortSha() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "2ca7420",
-		OutputPath:      gitSuite.outputPath,
-		IncludePatterns: []string{},
-		ExcludePatterns: []string{},
-		SupportShortSha: true,
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "2ca7420",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   true,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -140,12 +152,16 @@ func (gitSuite *gitTestSuite) TestSnapshotForShortSha() {
 
 func (gitSuite *gitTestSuite) TestSnapshotForMainBranchName() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "master",
-		OutputPath:      gitSuite.outputPath,
-		IncludePatterns: []string{},
-		ExcludePatterns: []string{},
-		SupportShortSha: false,
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "master",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -156,12 +172,16 @@ func (gitSuite *gitTestSuite) TestSnapshotForMainBranchName() {
 
 func (gitSuite *gitTestSuite) TestSnapshotForBranchName() {
 	err := Snapshot(&options.Options{
-		ClonePath:       gitSuite.clonePath,
-		Revision:        "remotes/origin/lfx",
-		OutputPath:      gitSuite.outputPath,
-		IncludePatterns: []string{},
-		ExcludePatterns: []string{},
-		SupportShortSha: false,
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "remotes/origin/lfx",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -178,8 +198,12 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIncludePattern() {
 		IncludePatterns: []string{
 			"**/*.java",
 		},
-		ExcludePatterns: []string{},
-		SupportShortSha: false,
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -197,8 +221,12 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIncludePatterns() {
 			"**/*.java",
 			"pom.xml",
 		},
-		ExcludePatterns: []string{},
-		SupportShortSha: false,
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -216,7 +244,11 @@ func (gitSuite *gitTestSuite) TestSnapshotWithExcludePattern() {
 		ExcludePatterns: []string{
 			"**/*.java",
 		},
-		SupportShortSha: false,
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -235,7 +267,11 @@ func (gitSuite *gitTestSuite) TestSnapshotWithExcludePatterns() {
 			"**/*.java",
 			"pom.xml",
 		},
-		SupportShortSha: false,
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -255,11 +291,35 @@ func (gitSuite *gitTestSuite) TestSnapshotWithAllPatterns() {
 		ExcludePatterns: []string{
 			"**/VO/**",
 		},
-		SupportShortSha: false,
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
 		19, 102,
 		215, 47804,
+	)
+}
+
+func (gitSuite *gitTestSuite) TestSnapshotWithMarkers() {
+	err := Snapshot(&options.Options{
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		SupportShortSha:   false,
+		TextFilesOnly:     false,
+		CreateHashMarkers: true,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
+	})
+	gitSuite.Nil(err)
+	gitSuite.verifyOutputPath(
+		28, 181 * 2,
+		40, 47804,
 	)
 }
