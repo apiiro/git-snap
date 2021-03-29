@@ -9,7 +9,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/shomali11/parallelizer"
 	"gitsnap/options"
-	"golang.org/x/tools/godoc/util"
+	"gitsnap/util"
 	"io/ioutil"
 	"log"
 	"os"
@@ -152,6 +152,11 @@ func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object
 		return nil
 	}
 
+	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePath)) {
+		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
+		return nil
+	}
+
 	targetFilePath := filepath.Join(outputPath, filePath)
 	targetDirectoryPath := filepath.Dir(targetFilePath)
 	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
@@ -166,11 +171,6 @@ func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object
 	}
 
 	contentsBytes := []byte(contents)
-
-	if provider.opts.TextFilesOnly && !util.IsText(contentsBytes) {
-		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
-		return nil
-	}
 
 	err = ioutil.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
