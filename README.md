@@ -46,7 +46,7 @@ git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --inc
 ## Install
 
 ```bash
-curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh | bash
+curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh | sudo bash
 ```
 
 then run with either:
