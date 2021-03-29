@@ -3,6 +3,7 @@ package options
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
+	"gitsnap/util"
 	"os"
 	"strings"
 )
@@ -127,9 +128,22 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		CreateHashMarkers: c.Bool("hash-markers"),
 		MaxFileSizeBytes:  int64(c.Int("max-size")) * 1024 * 1024,
 	}
+
 	err := validateDirectory(opts.ClonePath, false)
-	if err == nil {
-		err = validateDirectory(opts.OutputPath, true)
+	if err != nil {
+		return nil, &util.ErrorWithCode{
+			StatusCode:    util.ERROR_BAD_CLONE_PATH,
+			InternalError: err,
+		}
 	}
-	return opts, err
+
+	err = validateDirectory(opts.OutputPath, true)
+	if err != nil {
+		return nil, &util.ErrorWithCode{
+			StatusCode:    util.ERROR_BAD_OUTPUT_PATH,
+			InternalError: err,
+		}
+	}
+
+	return opts, nil
 }

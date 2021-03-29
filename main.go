@@ -4,11 +4,12 @@ import (
 	"github.com/urfave/cli/v2"
 	"gitsnap/git"
 	"gitsnap/options"
+	"gitsnap/util"
 	"log"
 	"os"
 )
 
-const VERSION = "1.1"
+const VERSION = "1.2"
 
 func main() {
 	cli.AppHelpTemplate =
@@ -21,6 +22,14 @@ USAGE:
 OPTIONS:
    {{range .Flags}}{{.}}
    {{end}}
+
+EXIT CODES:
+	201	Clone path is invalid (fs-wise)
+	202	Clone path is invalid (git-wise)
+	203	Output path is invalid
+	204	Short sha is not supported
+	205	Provided revision could not be found
+	1	Any other error
 `
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
@@ -44,6 +53,10 @@ OPTIONS:
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("failed: %v", err)
+		if errorWithCode, isWithCode := err.(*util.ErrorWithCode); isWithCode {
+			os.Exit(errorWithCode.StatusCode)
+		}
+		os.Exit(1)
 	}
 }

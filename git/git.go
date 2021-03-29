@@ -51,7 +51,10 @@ func Snapshot(opts *options.Options) (err error) {
 	}
 	provider.repository, err = git.PlainOpen(opts.ClonePath)
 	if err != nil {
-		return
+		return &util.ErrorWithCode{
+			StatusCode:    util.ERROR_BAD_CLONE_GIT,
+			InternalError: err,
+		}
 	}
 
 	var commit *object.Commit
@@ -73,14 +76,20 @@ func (provider *repositoryProvider) getCommit(commitish string, supportShortSha 
 
 	if len(commitish) == SHORT_SHA_LENGTH {
 		if !supportShortSha {
-			return nil, fmt.Errorf("cannot parse short sha revision")
+			return nil, &util.ErrorWithCode{
+				StatusCode:    util.ERROR_NO_SHORT_SHA,
+				InternalError: fmt.Errorf("cannot parse short sha revision %v", commitish),
+			}
 		}
 		return provider.getCommitFromShortSha(commitish)
 	}
 
 	hash, err := provider.repository.ResolveRevision(plumbing.Revision(commitish))
 	if err != nil {
-		return nil, err
+		return nil, &util.ErrorWithCode{
+			StatusCode:    util.ERROR_NO_REVISION,
+			InternalError: err,
+		}
 	}
 
 	return provider.repository.CommitObject(*hash)
