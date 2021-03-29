@@ -22,7 +22,6 @@ USAGE:
 OPTIONS:
    {{range .Flags}}{{.}}
    {{end}}
-
 EXIT CODES:
 	201	Clone path is invalid (fs-wise)
 	202	Clone path is invalid (git-wise)

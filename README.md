@@ -6,7 +6,7 @@ Tool to create a git revision snapshot for an existing repository clone.
 
 ```
 NAME:
-   gitsnap - 1.1 - Create a git revision snapshot for an existing repository clone.
+   gitsnap - 1.2 - Create a git revision snapshot for an existing repository clone.
                     Symbolic link files will be omitted.
 
 USAGE:
@@ -26,6 +26,13 @@ OPTIONS:
    --help, -h                 show help (default: false)
    --version, -v              print the version (default: false)
 
+EXIT CODES:
+  201  Clone path is invalid (fs-wise)
+  202  Clone path is invalid (git-wise)
+  203  Output path is invalid
+  204  Short sha is not supported
+  205  Provided revision could not be found
+  1    Any other error
 ```
 
 ## Examples
