@@ -138,7 +138,7 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 	}
 }
 
-func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object.File, outputPath string) error {
+func (provider *repositoryProvider) dumpFile(file *object.File, outputPath string) error {
 	filePath := file.Name
 
 	mode := file.Mode
@@ -217,7 +217,7 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 	var internalError error
 	err = tree.Files().ForEach(func(file *object.File) error {
 		return queue.Add(func() {
-			err := provider.dumpFile(commit, file, outputPath)
+			err := provider.dumpFile(file, outputPath)
 			if err != nil {
 				internalError = err
 			}
