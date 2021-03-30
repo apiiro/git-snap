@@ -112,12 +112,17 @@ func benchmark(remote string) {
 		withTempDir(func(outputPath string) {
 			log.Printf("> Running snapshot")
 			err := Snapshot(&options.Options{
-				ClonePath:       clonePath,
-				Revision:        "master",
-				OutputPath:      outputPath,
-				IncludePatterns: []string{"**/*.java"},
-				ExcludePatterns: []string{},
-				SupportShortSha: true,
+				ClonePath:          clonePath,
+				Revision:           "master",
+				OutputPath:         outputPath,
+				IncludePatterns:    []string{"*.java"},
+				ExcludePatterns:    []string{},
+				VerboseLogging:     false,
+				SupportShortSha:    true,
+				TextFilesOnly:      false,
+				CreateHashMarkers:  false,
+				IgnoreCasePatterns: false,
+				MaxFileSizeBytes:   0,
 			})
 			if err != nil {
 				panic(err)

@@ -147,7 +147,7 @@ func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object
 		return nil
 	}
 
-	if file.Size >= provider.opts.MaxFileSizeBytes {
+	if provider.opts.MaxFileSizeBytes > 0 && file.Size >= provider.opts.MaxFileSizeBytes {
 		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", filePath, file.Size)
 		return nil
 	}
