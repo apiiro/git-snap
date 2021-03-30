@@ -264,8 +264,8 @@ func (gitSuite *gitTestSuite) TestSnapshotWithExcludePatterns() {
 		OutputPath:      gitSuite.outputPath,
 		IncludePatterns: []string{},
 		ExcludePatterns: []string{
-			"**/*.java",
-			"pom.xml",
+			"*.java",
+			"**pom.xml",
 		},
 		VerboseLogging:    true,
 		SupportShortSha:   false,

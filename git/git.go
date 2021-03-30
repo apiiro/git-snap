@@ -152,19 +152,22 @@ func (provider *repositoryProvider) dumpFile(commit *object.Commit, file *object
 		return nil
 	}
 
-	filePathLower := strings.ToLower(filePath)
+	filePathToCheck := filePath
+	if provider.opts.IgnoreCasePatterns {
+		filePathToCheck = strings.ToLower(filePathToCheck)
+	}
 
-	if len(provider.includePatterns) > 0 && !matches(filePathLower, provider.includePatterns) {
+	if len(provider.includePatterns) > 0 && !matches(filePathToCheck, provider.includePatterns) {
 		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
 		return nil
 	}
 
-	if len(provider.excludePatterns) > 0 && matches(filePathLower, provider.excludePatterns) {
+	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) {
 		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
 		return nil
 	}
 
-	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePathLower)) {
+	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePathToCheck)) {
 		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
 		return nil
 	}

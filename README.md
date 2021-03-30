@@ -6,11 +6,11 @@ Tool to create a git revision snapshot for an existing repository clone.
 
 ```
 NAME:
-   gitsnap - 1.2 - Create a git revision snapshot for an existing repository clone.
+   gitsnap - 1.3 - Create a git revision snapshot for an existing repository clone.
                     Symbolic link files will be omitted.
 
 USAGE:
-   gitsnap --src value --rev value --out value [--include value] [--exclude value] [--verbose value] [--short-sha value] [--text-only value] [--hash-markers value] [--max-size value]
+   gitsnap --src value --rev value --out value         [optional flags]
 
 OPTIONS:
    --src value, -s value      path to existing git clone as source directory, may contain no more than .git directory, current git state doesn't affect the command
@@ -22,6 +22,7 @@ OPTIONS:
    --short-sha                support short-sha revision (default: false)
    --text-only                include only text files (default: false)
    --hash-markers             create also hint files mirroring the hash of original files at <path>.hash (default: false)
+   --ignore-case              ignore case when checking path against inclusion patterns (default: false)
    --max-size value           maximal file size, in MB (default: 6)
    --help, -h                 show help (default: false)
    --version, -v              print the version (default: false)

@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.2"
+const VERSION = "1.3"
 
 func main() {
 	cli.AppHelpTemplate =
@@ -17,7 +17,7 @@ func main() {
    {{.Name}} - {{.Version}} - {{.Usage}}
 
 USAGE:
-   {{.Name}}{{range .Flags}}{{if and (not (eq .Name "help")) (not (eq .Name "version")) }} {{if .Required}}--{{.Name}} value{{else}}[--{{.Name}} value]{{end}}{{end}}{{end}}
+   {{.Name}}{{range .Flags}}{{if and (not (eq .Name "help")) (not (eq .Name "version")) }} {{if .Required}}--{{.Name}} value{{end}}{{end}}{{end}} [optional flags]
 
 OPTIONS:
    {{range .Flags}}{{.}}
