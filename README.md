@@ -6,7 +6,7 @@ Tool to create a git revision snapshot for an existing repository clone.
 
 ```
 NAME:
-   gitsnap - 1.3 - Create a git revision snapshot for an existing repository clone.
+   gitsnap - 1.4 - Create a git revision snapshot for an existing repository clone.
                     Symbolic link files will be omitted.
 
 USAGE:
@@ -48,6 +48,8 @@ git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --inc
 
 ```bash
 curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh | sudo bash
+# or for a specific version:
+curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh | sudo bash -s 1.4
 ```
 
 then run with either:
