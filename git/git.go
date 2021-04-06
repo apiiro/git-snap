@@ -10,6 +10,7 @@ import (
 	"github.com/shomali11/parallelizer"
 	"gitsnap/options"
 	"gitsnap/util"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -34,11 +35,11 @@ func Snapshot(opts *options.Options) (err error) {
 
 	includePatterns, err := compileGlobs(opts.IncludePatterns)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to compile include patterns '%v': %v", opts.IncludePatterns, err)
 	}
 	excludePatterns, err := compileGlobs(opts.ExcludePatterns)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to compile exclude patterns '%v': %v", opts.ExcludePatterns, err)
 	}
 
 	provider := &repositoryProvider{
@@ -57,7 +58,7 @@ func Snapshot(opts *options.Options) (err error) {
 	var commit *object.Commit
 	commit, err = provider.getCommit(opts.Revision, opts.SupportShortSha)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get revision '%v': %v", opts.Revision, err)
 	}
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
@@ -215,7 +216,7 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 	defer queue.Close()
 
 	var internalError error
-	err = tree.Files().ForEach(func(file *object.File) error {
+	err = forEachFile(tree.Files(), func(file *object.File) error {
 		return queue.Add(func() {
 			err := provider.dumpFile(file, outputPath)
 			if err != nil {
@@ -224,16 +225,43 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 		})
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 	}
 
 	err = queue.Wait()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to wait on work queue: %v", err)
 	}
 
 	if internalError != nil {
-		return internalError
+		return fmt.Errorf("error in work queue processing: %v", internalError)
 	}
 	return nil
+}
+
+func forEachFile(iter *object.FileIter, cb func(*object.File) error) error {
+	defer iter.Close()
+
+	for {
+		f, err := iter.Next()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+
+			if err.Error() == "object not found" {
+				continue
+			}
+
+			return fmt.Errorf("failed to fetch next file: %v", err)
+		}
+
+		if err := cb(f); err != nil {
+			if err == storer.ErrStop {
+				return nil
+			}
+
+			return fmt.Errorf("error on file cb for %v: %v", f.Name, err)
+		}
+	}
 }

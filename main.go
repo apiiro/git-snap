@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.3"
+const VERSION = "1.4"
 
 func main() {
 	cli.AppHelpTemplate =
@@ -43,7 +43,7 @@ EXIT CODES:
 				return err
 			}
 			err = git.Snapshot(opts)
-			if err != nil {
+			if err == nil {
 				log.Printf("Completed successfully at %v", opts.OutputPath)
 			}
 			return err
