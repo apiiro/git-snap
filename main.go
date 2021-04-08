@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.4"
+const VERSION = "1.4.1"
 
 func main() {
 	cli.AppHelpTemplate =
@@ -23,6 +23,7 @@ OPTIONS:
    {{range .Flags}}{{.}}
    {{end}}
 EXIT CODES:
+	0   Success
 	201	Clone path is invalid (fs-wise)
 	202	Clone path is invalid (git-wise)
 	203	Output path is invalid
@@ -33,8 +34,8 @@ EXIT CODES:
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	app := &cli.App{
-		Name:    "gitsnap",
-		Usage:   "Create a git revision snapshot for an existing repository clone.\n                    Symbolic link files will be omitted.",
+		Name:    "git-snap",
+		Usage:   "Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.",
 		Flags:   options.Flags,
 		Version: VERSION,
 		Action: func(ctx *cli.Context) error {

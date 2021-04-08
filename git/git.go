@@ -58,7 +58,7 @@ func Snapshot(opts *options.Options) (err error) {
 	var commit *object.Commit
 	commit, err = provider.getCommit(opts.Revision, opts.SupportShortSha)
 	if err != nil {
-		return fmt.Errorf("failed to get revision '%v': %v", opts.Revision, err)
+		return err
 	}
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
@@ -86,7 +86,7 @@ func (provider *repositoryProvider) getCommit(commitish string, supportShortSha 
 	if err != nil {
 		return nil, &util.ErrorWithCode{
 			StatusCode:    util.ERROR_NO_REVISION,
-			InternalError: err,
+			InternalError: fmt.Errorf("failed to get revision '%v': %v", commitish, err),
 		}
 	}
 
@@ -112,7 +112,20 @@ func (provider *repositoryProvider) getCommitFromShortSha(commitish string) (com
 	return
 }
 
+func expandPatternsIfNeeded(patterns []string) []string {
+	for _, pattern := range patterns {
+		if strings.HasPrefix(pattern, "*/") {
+			patterns = append(patterns, strings.Replace(pattern, "*/", "", 1))
+		}
+		if strings.HasPrefix(pattern, "**/") {
+			patterns = append(patterns, strings.Replace(pattern, "**/", "", 1))
+		}
+	}
+	return patterns
+}
+
 func compileGlobs(patterns []string) ([]glob.Glob, error) {
+	patterns = expandPatternsIfNeeded(patterns)
 	globs := make([]glob.Glob, len(patterns))
 	for i, pattern := range patterns {
 		compiled, err := glob.Compile(pattern)
