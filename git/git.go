@@ -72,18 +72,18 @@ func Snapshot(opts *options.Options) (err error) {
 
 func (provider *repositoryProvider) getCommit(commitish string, supportShortSha bool) (*object.Commit, error) {
 
-	if len(commitish) == SHORT_SHA_LENGTH {
-		if !supportShortSha {
-			return nil, &util.ErrorWithCode{
-				StatusCode:    util.ERROR_NO_SHORT_SHA,
-				InternalError: fmt.Errorf("cannot parse short sha revision %v", commitish),
-			}
-		}
-		return provider.getCommitFromShortSha(commitish)
-	}
-
 	hash, err := provider.repository.ResolveRevision(plumbing.Revision(commitish))
 	if err != nil {
+		if len(commitish) == SHORT_SHA_LENGTH {
+			if !supportShortSha {
+				return nil, &util.ErrorWithCode{
+					StatusCode:    util.ERROR_NO_SHORT_SHA,
+					InternalError: fmt.Errorf("cannot parse short sha revision %v", commitish),
+				}
+			}
+			return provider.getCommitFromShortSha(commitish)
+		}
+
 		return nil, &util.ErrorWithCode{
 			StatusCode:    util.ERROR_NO_REVISION,
 			InternalError: fmt.Errorf("failed to get revision '%v': %v", commitish, err),
