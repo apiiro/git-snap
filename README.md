@@ -52,6 +52,12 @@ curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh | sudo
 curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh | sudo bash -s 1.4
 ```
 
+If that doesn't work, try:
+```bash
+curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh -o install.sh
+sudo bash install.sh
+```
+
 then run with either:
 
 ```bash
