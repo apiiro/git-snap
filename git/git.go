@@ -58,7 +58,7 @@ func Snapshot(opts *options.Options) (err error) {
 
 	var commit *object.Commit
 	commit, err = provider.getCommit(opts.Revision, opts.SupportShortSha)
-	if err != nil {
+	if err != nil || commit == nil {
 		return err
 	}
 
@@ -72,6 +72,12 @@ func Snapshot(opts *options.Options) (err error) {
 }
 
 func (provider *repositoryProvider) getCommit(commitish string, supportShortSha bool) (*object.Commit, error) {
+
+	_, err := provider.repository.Head()
+	if err == plumbing.ErrReferenceNotFound {
+		log.Printf("repository is detected as empty -- nothing to do")
+		return nil, nil
+	}
 
 	hash, err := provider.repository.ResolveRevision(plumbing.Revision(commitish))
 	if err != nil {
