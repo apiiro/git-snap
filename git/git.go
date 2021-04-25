@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"github.com/avast/retry-go"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -190,36 +191,46 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 	targetDirectoryPath := filepath.Dir(targetFilePath)
 	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
 	}
 
 	var contents string
-	contents, err = file.Contents()
+	err = retry.Do(
+		func() error {
+			var err error
+			contents, err = file.Contents()
+			return err
+		},
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err)
 	}
 
 	contentsBytes := []byte(contents)
 
 	err = ioutil.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
 	}
 
 	provider.verboseLog("+++ '%v' to '%v'", filePath, targetFilePath)
 
 	if provider.opts.CreateHashMarkers {
-		err = ioutil.WriteFile(fmt.Sprintf("%v.hash", targetFilePath), []byte(file.Hash.String()), TARGET_PERMISSIONS)
+		targetHashFilePath := fmt.Sprintf("%v.hash", targetFilePath)
+		err = ioutil.WriteFile(targetHashFilePath, []byte(file.Hash.String()), TARGET_PERMISSIONS)
+		if err != nil {
+			return fmt.Errorf("failed to write hash file of '%v' to '%v': %v", filePath, targetFilePath, err)
+		}
 	}
 
-	return err
+	return nil
 }
 
 func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) error {
 
 	tree, err := commit.Tree()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err)
 	}
 
 	queue := parallelizer.NewGroup(func(groupOptions *parallelizer.GroupOptions) {
@@ -228,17 +239,33 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 	})
 	defer queue.Close()
 
-	var internalError error
-	err = forEachFile(tree.Files(), func(file *object.File) error {
-		return queue.Add(func() {
-			err := provider.dumpFile(file, outputPath)
-			if err != nil {
-				internalError = err
-			}
-		})
+	var asyncError error
+	files := &util.List{}
+	err = provider.forEachFile(tree.Files(), func(file *object.File) error {
+		files.Insert(file)
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
+	}
+
+	node := files.Head
+	for {
+		if node == nil {
+			break
+		}
+
+		file := node.Value.(*object.File)
+		err = queue.Add(func() {
+			err := provider.dumpFile(file, outputPath)
+			if err != nil {
+				asyncError = err
+			}
+		})
+		if err != nil {
+			return fmt.Errorf("failed to enqueue file '%v': %v", file.Name, err)
+		}
+		node = node.Next
 	}
 
 	err = queue.Wait()
@@ -246,13 +273,13 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 		return fmt.Errorf("failed to wait on work queue: %v", err)
 	}
 
-	if internalError != nil {
-		return fmt.Errorf("error in work queue processing: %v", internalError)
+	if asyncError != nil {
+		return fmt.Errorf("error in work queue processing: %v", asyncError)
 	}
 	return nil
 }
 
-func forEachFile(iter *object.FileIter, cb func(*object.File) error) error {
+func (provider *repositoryProvider) forEachFile(iter *object.FileIter, cb func(*object.File) error) error {
 	defer iter.Close()
 
 	for {
@@ -263,6 +290,7 @@ func forEachFile(iter *object.FileIter, cb func(*object.File) error) error {
 			}
 
 			if err.Error() == "object not found" {
+				provider.verboseLog("error while fetching next: %v", err)
 				continue
 			}
 
