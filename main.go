@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.5.1"
+const VERSION = "1.5.2"
 
 func main() {
 	cli.AppHelpTemplate =

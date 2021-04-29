@@ -5,6 +5,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"gitsnap/util"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -141,7 +142,15 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 	if err != nil {
 		return nil, &util.ErrorWithCode{
 			StatusCode:    util.ERROR_BAD_CLONE_PATH,
-			InternalError: err,
+			InternalError: fmt.Errorf("clone at '%v' is missing or invalid: %v", opts.ClonePath, err),
+		}
+	}
+
+	err = validateDirectory(path.Join(opts.ClonePath, ".git"), false)
+	if err != nil {
+		return nil, &util.ErrorWithCode{
+			StatusCode:    util.ERROR_BAD_CLONE_PATH,
+			InternalError: fmt.Errorf(".git at '%v' is missing or invalid: %v", opts.ClonePath, err),
 		}
 	}
 
