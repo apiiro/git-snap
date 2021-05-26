@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	SHORT_SHA_LENGTH   = 7
 	TARGET_PERMISSIONS = 0777
 )
 
@@ -55,9 +54,13 @@ func Snapshot(opts *options.Options) (err error) {
 			InternalError: err,
 		}
 	}
+	_, err = provider.repository.ResolveRevision("HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to resolved HEAD revision: %v", err)
+	}
 
 	var commit *object.Commit
-	commit, err = provider.getCommit(opts.Revision, opts.SupportShortSha)
+	commit, err = provider.getCommit(opts.Revision)
 	if err != nil || commit == nil {
 		return err
 	}
@@ -71,7 +74,7 @@ func Snapshot(opts *options.Options) (err error) {
 	return err
 }
 
-func (provider *repositoryProvider) getCommit(commitish string, supportShortSha bool) (*object.Commit, error) {
+func (provider *repositoryProvider) getCommit(commitish string) (*object.Commit, error) {
 
 	_, err := provider.repository.Head()
 	if err == plumbing.ErrReferenceNotFound {
@@ -81,16 +84,6 @@ func (provider *repositoryProvider) getCommit(commitish string, supportShortSha 
 
 	hash, err := provider.repository.ResolveRevision(plumbing.Revision(commitish))
 	if err != nil {
-		if len(commitish) == SHORT_SHA_LENGTH {
-			if !supportShortSha {
-				return nil, &util.ErrorWithCode{
-					StatusCode:    util.ERROR_NO_SHORT_SHA,
-					InternalError: fmt.Errorf("cannot parse short sha revision %v", commitish),
-				}
-			}
-			return provider.getCommitFromShortSha(commitish)
-		}
-
 		return nil, &util.ErrorWithCode{
 			StatusCode:    util.ERROR_NO_REVISION,
 			InternalError: fmt.Errorf("failed to get revision '%v': %v", commitish, err),
@@ -98,25 +91,6 @@ func (provider *repositoryProvider) getCommit(commitish string, supportShortSha 
 	}
 
 	return provider.repository.CommitObject(*hash)
-}
-
-func (provider *repositoryProvider) getCommitFromShortSha(commitish string) (commit *object.Commit, err error) {
-	// Manual implementation of short sha mapping, due to bug in go-git: https://github.com/go-git/go-git/issues/148
-	var iter object.CommitIter
-	iter, err = provider.repository.CommitObjects()
-	if err != nil {
-		return
-	}
-	err = iter.ForEach(func(iterated *object.Commit) error {
-		sha := iterated.Hash.String()
-		shortSha := sha[:SHORT_SHA_LENGTH]
-		if shortSha == commitish {
-			commit = iterated
-			return storer.ErrStop
-		}
-		return nil
-	})
-	return
 }
 
 func expandPatternsIfNeeded(patterns []string) []string {

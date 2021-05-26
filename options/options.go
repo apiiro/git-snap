@@ -50,12 +50,6 @@ var Flags = []cli.Flag{
 		Required: false,
 	},
 	&cli.BoolFlag{
-		Name:     "short-sha",
-		Value:    false,
-		Usage:    "support short-sha revision",
-		Required: false,
-	},
-	&cli.BoolFlag{
 		Name:     "text-only",
 		Value:    false,
 		Usage:    "include only text files",
@@ -88,7 +82,6 @@ type Options struct {
 	IncludePatterns    []string
 	ExcludePatterns    []string
 	VerboseLogging     bool
-	SupportShortSha    bool
 	TextFilesOnly      bool
 	CreateHashMarkers  bool
 	IgnoreCasePatterns bool
@@ -131,7 +124,6 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		IncludePatterns:    splitListFlag(c.String("include")),
 		ExcludePatterns:    splitListFlag(c.String("exclude")),
 		VerboseLogging:     c.Bool("verbose"),
-		SupportShortSha:    c.Bool("short-sha"),
 		TextFilesOnly:      c.Bool("text-only"),
 		CreateHashMarkers:  c.Bool("hash-markers"),
 		IgnoreCasePatterns: c.Bool("ignore-case"),
