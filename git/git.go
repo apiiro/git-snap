@@ -67,7 +67,7 @@ func Snapshot(opts *options.Options) (err error) {
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 
-	err = provider.snapshot(commit, opts.OutputPath)
+	err = provider.snapshot(commit, opts.OutputPath, opts.Concurrent)
 	if err == nil {
 		log.Printf("written files to target path '%v'", opts.OutputPath)
 	}
@@ -206,18 +206,21 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 	return nil
 }
 
-func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) error {
+func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string, concurrent bool) error {
 
 	tree, err := commit.Tree()
 	if err != nil {
 		return fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err)
 	}
 
-	queue := parallelizer.NewGroup(func(groupOptions *parallelizer.GroupOptions) {
-		groupOptions.PoolSize = runtime.NumCPU()
-		groupOptions.JobQueueSize = 1024
-	})
-	defer queue.Close()
+	var queue *parallelizer.Group
+	if concurrent {
+		queue = parallelizer.NewGroup(func(groupOptions *parallelizer.GroupOptions) {
+			groupOptions.PoolSize = runtime.NumCPU()
+			groupOptions.JobQueueSize = 1024
+		})
+		defer queue.Close()
+	}
 
 	var asyncError error
 	files := &util.List{}
@@ -236,21 +239,30 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 		}
 
 		file := node.Value.(*object.File)
-		err = queue.Add(func() {
-			err := provider.dumpFile(file, outputPath)
+		if concurrent {
+			err = queue.Add(func() {
+				err := provider.dumpFile(file, outputPath)
+				if err != nil {
+					asyncError = err
+				}
+			})
 			if err != nil {
-				asyncError = err
+				return fmt.Errorf("failed to enqueue file '%v': %v", file.Name, err)
 			}
-		})
-		if err != nil {
-			return fmt.Errorf("failed to enqueue file '%v': %v", file.Name, err)
+		} else {
+			asyncError = provider.dumpFile(file, outputPath)
+			if asyncError != nil {
+				break
+			}
 		}
 		node = node.Next
 	}
 
-	err = queue.Wait()
-	if err != nil {
-		return fmt.Errorf("failed to wait on work queue: %v", err)
+	if concurrent {
+		err = queue.Wait()
+		if err != nil {
+			return fmt.Errorf("failed to wait on work queue: %v", err)
+		}
 	}
 
 	if asyncError != nil {
