@@ -54,9 +54,14 @@ func Snapshot(opts *options.Options) (err error) {
 			InternalError: err,
 		}
 	}
-	_, err = provider.repository.ResolveRevision("HEAD")
+
+	var headCommit *object.Commit
+	headCommit, err = provider.getCommit("HEAD")
 	if err != nil {
 		return fmt.Errorf("failed to resolved HEAD revision: %v", err)
+	}
+	if headCommit == nil {
+		return nil
 	}
 
 	var commit *object.Commit
