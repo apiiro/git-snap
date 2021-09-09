@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.5.5"
+const VERSION = "1.5.6"
 
 func main() {
 	cli.AppHelpTemplate =
@@ -33,6 +33,7 @@ EXIT CODES:
 `
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetOutput(os.Stdout)
 	app := &cli.App{
 		Name:    "git-snap",
 		Usage:   "Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.",
