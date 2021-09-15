@@ -6,17 +6,13 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/gobwas/glob"
-	"github.com/shomali11/parallelizer"
 	"gitsnap/options"
 	"gitsnap/util"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -72,7 +68,7 @@ func Snapshot(opts *options.Options) (err error) {
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 
-	err = provider.snapshot(commit, opts.OutputPath, opts.Concurrent)
+	err = provider.snapshot(commit, opts.OutputPath)
 	if err == nil {
 		log.Printf("written files to target path '%v'", opts.OutputPath)
 	}
@@ -182,9 +178,9 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 	var contents string
 	err = retry.Do(
 		func() error {
-			var err error
-			contents, err = file.Contents()
-			return err
+			var contentsErr error
+			contents, contentsErr = file.Contents()
+			return contentsErr
 		},
 	)
 	if err != nil {
@@ -211,95 +207,20 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 	return nil
 }
 
-func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string, concurrent bool) error {
+func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) error {
 
 	tree, err := commit.Tree()
 	if err != nil {
 		return fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err)
 	}
-
-	var queue *parallelizer.Group
-	if concurrent {
-		queue = parallelizer.NewGroup(func(groupOptions *parallelizer.GroupOptions) {
-			groupOptions.PoolSize = runtime.NumCPU()
-			groupOptions.JobQueueSize = 1024
-		})
-		defer queue.Close()
-	}
-
-	var asyncError error
-	files := &util.List{}
-	err = provider.forEachFile(tree.Files(), func(file *object.File) error {
-		files.Insert(file)
-		return nil
+	count := 0
+	err = tree.Files().ForEach(func(file *object.File) error {
+		count++
+		return provider.dumpFile(file, outputPath)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 	}
-
-	node := files.Head
-	for {
-		if node == nil {
-			break
-		}
-
-		file := node.Value.(*object.File)
-		if concurrent {
-			err = queue.Add(func() {
-				err := provider.dumpFile(file, outputPath)
-				if err != nil {
-					asyncError = err
-				}
-			})
-			if err != nil {
-				return fmt.Errorf("failed to enqueue file '%v': %v", file.Name, err)
-			}
-		} else {
-			asyncError = provider.dumpFile(file, outputPath)
-			if asyncError != nil {
-				break
-			}
-		}
-		node = node.Next
-	}
-
-	if concurrent {
-		err = queue.Wait()
-		if err != nil {
-			return fmt.Errorf("failed to wait on work queue: %v", err)
-		}
-	}
-
-	if asyncError != nil {
-		return fmt.Errorf("error in work queue processing: %v", asyncError)
-	}
+	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
 	return nil
-}
-
-func (provider *repositoryProvider) forEachFile(iter *object.FileIter, cb func(*object.File) error) error {
-	defer iter.Close()
-
-	for {
-		f, err := iter.Next()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-
-			if err.Error() == "object not found" {
-				provider.verboseLog("error while fetching next: %v", err)
-				continue
-			}
-
-			return fmt.Errorf("failed to fetch next file: %v", err)
-		}
-
-		if err := cb(f); err != nil {
-			if err == storer.ErrStop {
-				return nil
-			}
-
-			return fmt.Errorf("error on file cb for %v: %v", f.Name, err)
-		}
-	}
 }

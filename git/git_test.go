@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/suite"
 	"gitsnap/options"
 	"io/fs"
@@ -58,26 +59,28 @@ func (gitSuite *gitTestSuite) TearDownTest() {
 	}
 }
 
-func (gitSuite *gitTestSuite) verifyOutputPath(
+func (gitSuite *gitTestSuite) verifyOutputPathAux(
 	expectedDirCount int,
 	expectedFileCount int,
 	expectedMinFileSize int,
 	expectedMaxFileSize int,
+	outputPath string,
 ) {
 	fileCount, dirCount := 0, 0
-	minFileSize, maxFileSize := 6*1024*1024, 0
-	err := filepath.Walk(gitSuite.outputPath, func(path string, info fs.FileInfo, err error) error {
+	minFileSize, maxFileSize := int64(6*1024*1024), int64(0)
+	err := filepath.Walk(outputPath, func(path string, info fs.FileInfo, err error) error {
 		gitSuite.NotNil(info, "missing info for %v", path)
 		if info.IsDir() {
 			dirCount++
 		} else {
 			fileCount++
-			gitSuite.True(info.Size() >= 0, "file at %v has invalid size", path)
+			fileSize := info.Size()
+			gitSuite.True(fileSize >= 0, "file at %v has invalid size", path)
 			gitSuite.True(info.Mode().IsRegular())
 			content, err := ioutil.ReadFile(path)
 			gitSuite.Nil(err, "failed to read file at %v", path)
-			fileSizeFromRead := len(content)
-			gitSuite.EqualValues(info.Size(), fileSizeFromRead, "read different file size for %v", path)
+			fileSizeFromRead := int64(len(content))
+			gitSuite.EqualValues(fileSize, fileSizeFromRead, "read different file size for %v", path)
 			if fileSizeFromRead > maxFileSize {
 				maxFileSize = fileSizeFromRead
 			}
@@ -87,11 +90,20 @@ func (gitSuite *gitTestSuite) verifyOutputPath(
 		}
 		return nil
 	})
-	gitSuite.Nil(err)
-	gitSuite.EqualValues(expectedDirCount, dirCount, "unexpected dirs count")
-	gitSuite.EqualValues(expectedFileCount, fileCount, "unexpected files count")
-	gitSuite.EqualValues(expectedMinFileSize, minFileSize, "unexpected min file size")
-	gitSuite.EqualValues(expectedMaxFileSize, maxFileSize, "unexpected max file size")
+	gitSuite.Require().Nil(err)
+	gitSuite.Require().EqualValues(expectedDirCount, dirCount, "unexpected dirs count")
+	gitSuite.Require().EqualValues(expectedFileCount, fileCount, "unexpected files count")
+	gitSuite.Require().EqualValues(expectedMinFileSize, minFileSize, "unexpected min file size")
+	gitSuite.Require().EqualValues(expectedMaxFileSize, maxFileSize, "unexpected max file size")
+}
+
+func (gitSuite *gitTestSuite) verifyOutputPath(
+	expectedDirCount int,
+	expectedFileCount int,
+	expectedMinFileSize int,
+	expectedMaxFileSize int,
+) {
+	gitSuite.verifyOutputPathAux(expectedDirCount, expectedFileCount, expectedMinFileSize, expectedMaxFileSize, gitSuite.outputPath)
 }
 
 func (gitSuite *gitTestSuite) TestSnapshotForRegularCommit() {
@@ -105,26 +117,6 @@ func (gitSuite *gitTestSuite) TestSnapshotForRegularCommit() {
 		TextFilesOnly:     false,
 		CreateHashMarkers: false,
 		MaxFileSizeBytes:  6 * 1024 * 1024,
-	})
-	gitSuite.Nil(err)
-	gitSuite.verifyOutputPath(
-		28, 181,
-		215, 47804,
-	)
-}
-
-func (gitSuite *gitTestSuite) TestSnapshotForRegularCommitWithConcurrency() {
-	err := Snapshot(&options.Options{
-		ClonePath:         gitSuite.clonePath,
-		Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
-		OutputPath:        gitSuite.outputPath,
-		IncludePatterns:   []string{},
-		ExcludePatterns:   []string{},
-		VerboseLogging:    true,
-		TextFilesOnly:     false,
-		CreateHashMarkers: false,
-		MaxFileSizeBytes:  6 * 1024 * 1024,
-		Concurrent:        true,
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
@@ -331,4 +323,38 @@ func (gitSuite *gitTestSuite) TestSnapshotWithMarkers() {
 		28, 181*2,
 		40, 47804,
 	)
+}
+
+func (gitSuite *gitTestSuite) TestSnapshotForRegularCommitMultipleTimesAndConcurrently() {
+	N := 10
+	for i := 0; i < N; i++ {
+		barrier := make(chan interface{}, N)
+		for j := 0; j < N; j++ {
+			innerJ := j
+			go func() {
+				outputPath := filepath.Join(gitSuite.outputPath, fmt.Sprintf("%v_%v", i, innerJ))
+				err := Snapshot(&options.Options{
+					ClonePath:         gitSuite.clonePath,
+					Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+					OutputPath:        outputPath,
+					IncludePatterns:   []string{},
+					ExcludePatterns:   []string{},
+					VerboseLogging:    false,
+					TextFilesOnly:     false,
+					CreateHashMarkers: false,
+					MaxFileSizeBytes:  6 * 1024 * 1024,
+				})
+				gitSuite.Nil(err)
+				gitSuite.verifyOutputPathAux(
+					28, 181,
+					215, 47804,
+					outputPath,
+				)
+				barrier <- nil
+			}()
+		}
+		for j := 0; j < N; j++ {
+			<-barrier
+		}
+	}
 }

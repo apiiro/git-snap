@@ -73,12 +73,6 @@ var Flags = []cli.Flag{
 		Usage:    "maximal file size, in MB",
 		Required: false,
 	},
-	&cli.BoolFlag{
-		Name:     "concurrent",
-		Value:    false,
-		Usage:    "allow multithreaded execution",
-		Required: false,
-	},
 }
 
 type Options struct {
@@ -92,7 +86,6 @@ type Options struct {
 	CreateHashMarkers  bool
 	IgnoreCasePatterns bool
 	MaxFileSizeBytes   int64
-	Concurrent         bool
 }
 
 func splitListFlag(flag string) []string {
@@ -135,7 +128,6 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		CreateHashMarkers:  c.Bool("hash-markers"),
 		IgnoreCasePatterns: c.Bool("ignore-case"),
 		MaxFileSizeBytes:   int64(c.Int("max-size")) * 1024 * 1024,
-		Concurrent:         c.Bool("concurrent"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)
