@@ -103,6 +103,10 @@ func init() {
 }
 
 func NotTextExt(ext string) bool {
+	if len(ext) == 0 {
+		return true
+	}
+	ext = ext[1:]
 	_, found := extensionsMap[ext]
 	return found
 }

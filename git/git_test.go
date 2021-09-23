@@ -124,6 +124,24 @@ func (gitSuite *gitTestSuite) TestSnapshotForRegularCommit() {
 		215, 47804,
 	)
 }
+func (gitSuite *gitTestSuite) TestSnapshotForRegularCommitOnTextFilesOnly() {
+	err := Snapshot(&options.Options{
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		TextFilesOnly:     true,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
+	})
+	gitSuite.Nil(err)
+	gitSuite.verifyOutputPath(
+		28, 180,
+		215, 47804,
+	)
+}
 
 func (gitSuite *gitTestSuite) TestSnapshotNonExistingRevision() {
 	err := Snapshot(&options.Options{

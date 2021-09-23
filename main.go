@@ -9,12 +9,12 @@ import (
 	"os"
 )
 
-const VERSION = "1.5.7"
+const VERSION = "1.5.8"
 
 func main() {
 	cli.AppHelpTemplate =
 		`NAME:
-   git-snap - 1.5.7 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
+   git-snap - 1.5.8 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
 
 USAGE:
    git-snap --src value --rev value --out value        [optional flags]
