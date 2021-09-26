@@ -104,7 +104,8 @@ func init() {
 
 func NotTextExt(ext string) bool {
 	if len(ext) == 0 {
-		return true
+		// we don't assume anything if there's no extension
+		return false
 	}
 	ext = ext[1:]
 	_, found := extensionsMap[ext]
