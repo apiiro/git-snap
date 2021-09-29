@@ -26,4 +26,4 @@ pushd "$TMPDIR" > /dev/null
   rm -rf gitsnap
 popd > /dev/null
 
-echo "Done: $(git snap -v)"
+echo "Done: $(git-snap -v)"
