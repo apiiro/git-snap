@@ -73,6 +73,12 @@ var Flags = []cli.Flag{
 		Usage:    "maximal file size, in MB",
 		Required: false,
 	},
+	&cli.BoolFlag{
+		Name:     "no-double-check",
+		Value:    false,
+		Usage:    "disable files discrepancy double check",
+		Required: false,
+	},
 }
 
 type Options struct {
@@ -86,6 +92,7 @@ type Options struct {
 	CreateHashMarkers  bool
 	IgnoreCasePatterns bool
 	MaxFileSizeBytes   int64
+	SkipDoubleCheck    bool
 }
 
 func splitListFlag(flag string) []string {
@@ -128,6 +135,7 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		CreateHashMarkers:  c.Bool("hash-markers"),
 		IgnoreCasePatterns: c.Bool("ignore-case"),
 		MaxFileSizeBytes:   int64(c.Int("max-size")) * 1024 * 1024,
+		SkipDoubleCheck:    c.Bool("no-double-check"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)

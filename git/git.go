@@ -68,11 +68,44 @@ func Snapshot(opts *options.Options) (err error) {
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 
-	err = provider.snapshot(commit, opts.OutputPath)
-	if err == nil {
-		log.Printf("written files to target path '%v'", opts.OutputPath)
+	var filesCount int
+	var filesCountDryRun int
+	if opts.SkipDoubleCheck {
+		filesCount, err = provider.snapshot(commit, opts.OutputPath, false)
+		if err != nil {
+			return err
+		}
+	} else {
+		filesCountDryRun, err = provider.snapshot(commit, opts.OutputPath, true)
+		if err != nil {
+			return err
+		}
+
+		filesCount, err = provider.snapshot(commit, opts.OutputPath, false)
+		if err != nil {
+			return err
+		}
+		if filesCount != filesCountDryRun {
+			return &util.ErrorWithCode{
+				StatusCode:    util.ERROR_FILES_DISCREPANCY,
+				InternalError: fmt.Errorf("dryRun files count is %v , but snapshot files count is %v", filesCountDryRun, filesCount),
+			}
+		}
+
+		filesCountDryRun, err = provider.snapshot(commit, opts.OutputPath, true)
+		if err != nil {
+			return err
+		}
+		if filesCount != filesCountDryRun {
+			return &util.ErrorWithCode{
+				StatusCode:    util.ERROR_FILES_DISCREPANCY,
+				InternalError: fmt.Errorf("dryRun files count is %v , but snapshot files count is %v", filesCountDryRun, filesCount),
+			}
+		}
 	}
-	return err
+
+	log.Printf("written %v files to target path '%v'", filesCount, opts.OutputPath)
+	return nil
 }
 
 func (provider *repositoryProvider) getCommit(commitish string) (*object.Commit, error) {
@@ -207,20 +240,23 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 	return nil
 }
 
-func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string) error {
+func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string, dryRun bool) (int, error) {
 
 	tree, err := commit.Tree()
 	if err != nil {
-		return fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err)
+		return 0, fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err)
 	}
 	count := 0
 	err = tree.Files().ForEach(func(file *object.File) error {
 		count++
+		if dryRun {
+			return nil
+		}
 		return provider.dumpFile(file, outputPath)
 	})
 	if err != nil {
-		return fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
+		return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 	}
 	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
-	return nil
+	return count, nil
 }
