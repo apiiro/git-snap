@@ -139,6 +139,25 @@ func (gitSuite *gitTestSuite) TestSnapshotForRegularCommitOnTextFilesOnly() {
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
+		28, 181,
+		215, 47804,
+	)
+}
+
+func (gitSuite *gitTestSuite) TestSnapshotForRegularCommitOnTextFilesOnlyWithExclude() {
+	err := Snapshot(&options.Options{
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{"**/*.html"},
+		VerboseLogging:    true,
+		TextFilesOnly:     true,
+		CreateHashMarkers: false,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
+	})
+	gitSuite.Nil(err)
+	gitSuite.verifyOutputPath(
 		28, 180,
 		215, 47804,
 	)
