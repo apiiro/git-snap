@@ -40,9 +40,9 @@ EXIT CODES:
 ## Examples
 
 ```bash
-git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master
-git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
-git snap --src /var/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
+git snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master
+git snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
+git snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
 ```
 
 ## Install
