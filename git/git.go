@@ -1,11 +1,13 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"github.com/avast/retry-go"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/filesystem/dotgit"
 	"github.com/gobwas/glob"
 	"gitsnap/options"
 	"gitsnap/util"
@@ -255,6 +257,12 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 		return provider.dumpFile(file, outputPath)
 	})
 	if err != nil {
+		if errors.Is(err, dotgit.ErrPackfileNotFound) {
+			return 0, util.ErrorWithCode{
+				StatusCode:    util.ERROR_BAD_CLONE_GIT,
+				InternalError: err,
+			}
+		}
 		return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 	}
 	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
