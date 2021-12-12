@@ -263,6 +263,12 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 				InternalError: err,
 			}
 		}
+		if errors.Is(err, plumbing.ErrObjectNotFound) {
+			return 0, util.ErrorWithCode{
+				StatusCode:    util.ERROR_NO_REVISION,
+				InternalError: err,
+			}
+		}
 		return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 	}
 	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
