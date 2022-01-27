@@ -237,7 +237,7 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 		targetHashFilePath := fmt.Sprintf("%v.hash", targetFilePath)
 		err = ioutil.WriteFile(targetHashFilePath, []byte(file.Hash.String()), TARGET_PERMISSIONS)
 		if err != nil {
-			return fmt.Errorf("failed to write hash file of '%v' to '%v': %v", filePath, targetFilePath, err)
+			log.Printf("failed to write hash file of '%v' to '%v': %v", filePath, targetFilePath, err)
 		}
 	}
 
