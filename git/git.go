@@ -6,6 +6,7 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/filesystem/dotgit"
 	"github.com/gobwas/glob"
@@ -173,7 +174,8 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 	filePath := file.Name
 
 	mode := file.Mode
-	if !mode.IsFile() || mode.IsMalformed() || !mode.IsRegular() {
+
+	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
 		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
 		return nil
 	}
@@ -273,4 +275,13 @@ func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath s
 	}
 	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
 	return count, nil
+}
+
+func (provider *repositoryProvider) isSymlink(filePath string, mode filemode.FileMode) bool {
+	osMode, err := mode.ToOSFileMode()
+	if err != nil {
+		provider.verboseLog("failed to parse os file permissions for '%v': %v", filePath, err)
+		return false
+	}
+	return osMode&os.ModeSymlink != 0
 }
