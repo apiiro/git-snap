@@ -24,6 +24,7 @@ OPTIONS:
    {{end}}
 EXIT CODES:
 	0   Success
+	101 Some file name is too long
 	201	Clone path is invalid (fs-wise)
 	202	Clone path is invalid (git-wise)
 	203	Output path is invalid

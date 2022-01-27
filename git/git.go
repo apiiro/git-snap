@@ -228,6 +228,12 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 
 	err = ioutil.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
+		if strings.Contains(err.Error(), "file name too long") {
+			return util.ErrorWithCode{
+				StatusCode:    util.ERROR_PATH_TOO_LONG,
+				InternalError: err,
+			}
+		}
 		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
 	}
 
