@@ -1,5 +1,7 @@
 package util
 
+import "fmt"
+
 var (
 	extensions = []string{
 		"7z",
@@ -89,6 +91,26 @@ var (
 		"zip",
 		"zipx",
 	}
+
+	noiseDirectories = []string{
+		".git",
+		".idea",
+		"node_modules",
+		"bin",
+		"debug",
+		"release",
+		"build",
+		"obj",
+		"target",
+		"venv",
+		"dist",
+		"app_data",
+		"lib",
+		"lib64",
+		"__pycache__",
+		".cache",
+	}
+
 	extensionsMap map[string]bool
 )
 
@@ -105,6 +127,13 @@ func NotTextExt(ext string) bool {
 		return false
 	}
 	ext = ext[1:]
-	_, found := extensionsMap[ext]
-	return found
+	return extensionsMap[ext]
+}
+
+func NoisyDirectoryExclusionPatterns() []string {
+	patterns := make([]string, len(noiseDirectories))
+	for i, dirname := range noiseDirectories {
+		patterns[i] = fmt.Sprintf("**/%v/**", dirname)
+	}
+	return patterns
 }

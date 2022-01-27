@@ -23,6 +23,7 @@ OPTIONS:
    --ignore-case              ignore case when checking path against inclusion patterns (default: false)
    --max-size value           maximal file size, in MB (default: 6)
    --no-double-check          disable files discrepancy double check (default: false)
+   --include-noise-dirs       don't filter out noisy directory names in paths (bin, node_modules etc) (default: false)
    --help, -h                 show help (default: false)
    --version, -v              print the version (default: false)
 

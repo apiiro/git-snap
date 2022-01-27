@@ -79,6 +79,12 @@ var Flags = []cli.Flag{
 		Usage:    "disable files discrepancy double check",
 		Required: false,
 	},
+	&cli.BoolFlag{
+		Name:     "include-noise-dirs",
+		Value:    false,
+		Usage:    "don't filter out noisy directory names in paths (bin, node_modules etc)",
+		Required: false,
+	},
 }
 
 type Options struct {
@@ -93,6 +99,7 @@ type Options struct {
 	IgnoreCasePatterns bool
 	MaxFileSizeBytes   int64
 	SkipDoubleCheck    bool
+	IncludeNoiseDirs   bool
 }
 
 func splitListFlag(flag string) []string {
@@ -136,6 +143,7 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		IgnoreCasePatterns: c.Bool("ignore-case"),
 		MaxFileSizeBytes:   int64(c.Int("max-size")) * 1024 * 1024,
 		SkipDoubleCheck:    c.Bool("no-double-check"),
+		IncludeNoiseDirs:   c.Bool("include-noise-dirs"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)
@@ -162,5 +170,29 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		}
 	}
 
+	if !opts.IncludeNoiseDirs {
+		opts.ExcludePatterns = union(util.NoisyDirectoryExclusionPatterns(), opts.ExcludePatterns)
+	}
+
 	return opts, nil
+}
+
+func union(s1 []string, s2 []string) []string {
+	if len(s1) == 0 {
+		return s2
+	}
+	if len(s2) == 0 {
+		return s1
+	}
+	unified := make([]string, len(s1)+len(s2))
+	i := 0
+	for _, item := range s1 {
+		unified[i] = item
+		i++
+	}
+	for _, item := range s2 {
+		unified[i] = item
+		i++
+	}
+	return unified
 }

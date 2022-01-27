@@ -31,20 +31,19 @@ type repositoryProvider struct {
 
 func Snapshot(opts *options.Options) (err error) {
 
-	includePatterns, err := compileGlobs(opts.IncludePatterns)
+	provider := &repositoryProvider{
+		opts: opts,
+	}
+
+	provider.includePatterns, err = provider.compileGlobs(opts.IncludePatterns, "include")
 	if err != nil {
 		return fmt.Errorf("failed to compile include patterns '%v': %v", opts.IncludePatterns, err)
 	}
-	excludePatterns, err := compileGlobs(opts.ExcludePatterns)
+	provider.excludePatterns, err = provider.compileGlobs(opts.ExcludePatterns, "exclude")
 	if err != nil {
 		return fmt.Errorf("failed to compile exclude patterns '%v': %v", opts.ExcludePatterns, err)
 	}
 
-	provider := &repositoryProvider{
-		includePatterns: includePatterns,
-		excludePatterns: excludePatterns,
-		opts:            opts,
-	}
 	provider.repository, err = git.PlainOpen(opts.ClonePath)
 	if err != nil {
 		return &util.ErrorWithCode{
@@ -141,8 +140,9 @@ func expandPatternsIfNeeded(patterns []string) []string {
 	return patterns
 }
 
-func compileGlobs(patterns []string) ([]glob.Glob, error) {
+func (provider *repositoryProvider) compileGlobs(patterns []string, title string) ([]glob.Glob, error) {
 	patterns = expandPatternsIfNeeded(patterns)
+	provider.verboseLog("%v %v patterns:\n%v", len(patterns), title, strings.Join(patterns, ", "))
 	globs := make([]glob.Glob, len(patterns))
 	for i, pattern := range patterns {
 		compiled, err := glob.Compile(pattern)
