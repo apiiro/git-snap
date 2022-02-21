@@ -1,15 +1,16 @@
 package main
 
 import (
-	"github.com/urfave/cli/v2"
 	"gitsnap/git"
 	"gitsnap/options"
 	"gitsnap/util"
 	"log"
 	"os"
+
+	"github.com/urfave/cli/v2"
 )
 
-const VERSION = "1.6.5"
+const VERSION = "1.6.6"
 
 func main() {
 	cli.AppHelpTemplate =
