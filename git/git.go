@@ -190,12 +190,16 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 		filePathToCheck = strings.ToLower(filePathToCheck)
 	}
 
-	if len(provider.includePatterns) > 0 && !matches(filePathToCheck, provider.includePatterns) {
+	skip := true
+	hasIncludePatterns := len(provider.includePatterns) > 0
+	if hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns) {
 		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
 		return nil
+	} else if hasIncludePatterns {
+		skip = false
 	}
 
-	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) {
+	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) && skip {
 		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
 		return nil
 	}
