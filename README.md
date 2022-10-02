@@ -69,7 +69,7 @@ bash: line 29: /usr/local/bin/git-snap: Bad CPU type in executable
 ```
 Try installing Rossetta by running:
 ```bash
-softwareupdate – install-rosetta
+softwareupdate --install-rosetta
 ```
 
 then run with either:
