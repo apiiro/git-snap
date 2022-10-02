@@ -59,6 +59,18 @@ If that doesn't work, try:
 curl -s https://raw.githubusercontent.com/apiiro/git-snap/main/install.sh -o install.sh
 sudo bash install.sh
 ```
+For Apple M1 CPUs:
+If you're getting the following error:
+```bash
+Installing...
+Archive:  gitsnap.zip
+  inflating: gitsnap-1.6.8-osx       
+bash: line 29: /usr/local/bin/git-snap: Bad CPU type in executable
+```
+Try installing Rossetta by running:
+```bash
+softwareupdate – install-rosetta
+```
 
 then run with either:
 
