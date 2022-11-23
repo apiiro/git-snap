@@ -10,4 +10,4 @@ require (
 	github.com/urfave/cli/v2 v2.3.0
 )
 
-replace github.com/go-git/go-git/v5 => github.com/apiiro/go-git/v5 v5.4.2-allow-missing-blobs
+replace github.com/go-git/go-git/v5 => github.com/apiiro/go-git/v5 v5.4.2-allow-missing-blobs.0.20221123130514-ae6a0627ae3b
