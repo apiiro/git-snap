@@ -9,3 +9,5 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 )
+
+replace github.com/go-git/go-git/v5 => github.com/apiiro/go-git/v5 v5.4.2-allow-missing-blobs
