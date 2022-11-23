@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/suite"
 	"gitsnap/options"
 	"io/fs"
 	"io/ioutil"
@@ -10,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type gitTestSuite struct {
@@ -230,8 +231,8 @@ func (gitSuite *gitTestSuite) TestSnapshotForMainBranchName() {
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
-		28, 183,
-		215, 47814,
+		30, 185,
+		7, 47814,
 	)
 }
 
@@ -358,7 +359,7 @@ func (gitSuite *gitTestSuite) TestSnapshotWithAllPatterns() {
 	})
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(
-		19, 102,
+		20, 167,
 		215, 47804,
 	)
 }
