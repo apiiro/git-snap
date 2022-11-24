@@ -15,22 +15,29 @@ import (
 
 type gitTestSuite struct {
 	suite.Suite
-	remote     string
-	clonePath  string
-	outputPath string
+	remote            string
+	clonePath         string
+	outputPath        string
+	filteredClonePath string
 }
 
 func TestGitTestSuite(t *testing.T) {
 	suite.Run(t, new(gitTestSuite))
 }
 
-func cloneLocal(remote string) (clonePath string) {
+func cloneLocal(remote string, filter string) (clonePath string) {
 	var err error
 	clonePath, err = ioutil.TempDir("", "")
 	if err != nil {
 		panic(err)
 	}
-	proc := exec.Command("git", "clone", "--no-checkout", remote, clonePath)
+
+	var proc *exec.Cmd
+	if len(filter) > 0 {
+		proc = exec.Command("git", "clone", "--no-checkout", filter, remote, clonePath)
+	} else {
+		proc = exec.Command("git", "clone", "--no-checkout", remote, clonePath)
+	}
 	err = proc.Start()
 	if err != nil {
 		panic(err)
@@ -44,8 +51,8 @@ func cloneLocal(remote string) (clonePath string) {
 
 func (gitSuite *gitTestSuite) SetupTest() {
 	gitSuite.remote = "https://github.com/apiirolab/dc-heacth.git"
-	clonePath := cloneLocal(gitSuite.remote)
-	gitSuite.clonePath = clonePath
+	gitSuite.clonePath = cloneLocal(gitSuite.remote, "")
+	gitSuite.filteredClonePath = cloneLocal(gitSuite.remote, "--filter=blob:limit=1k")
 	var err error
 	gitSuite.outputPath, err = ioutil.TempDir("", "")
 	if err != nil {
@@ -55,6 +62,10 @@ func (gitSuite *gitTestSuite) SetupTest() {
 
 func (gitSuite *gitTestSuite) TearDownTest() {
 	err := os.RemoveAll(gitSuite.clonePath)
+	if err != nil {
+		panic(err)
+	}
+	err = os.RemoveAll(gitSuite.filteredClonePath)
 	if err != nil {
 		panic(err)
 	}
@@ -380,6 +391,25 @@ func (gitSuite *gitTestSuite) TestSnapshotWithMarkers() {
 	gitSuite.verifyOutputPath(
 		28, 181*2,
 		40, 47804,
+	)
+}
+
+func (gitSuite *gitTestSuite) TestSnapshotWithMissingBlobs() {
+	err := Snapshot(&options.Options{
+		ClonePath:         gitSuite.filteredClonePath,
+		Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		VerboseLogging:    true,
+		TextFilesOnly:     false,
+		CreateHashMarkers: true,
+		MaxFileSizeBytes:  6 * 1024 * 1024,
+	})
+	gitSuite.Nil(err)
+	gitSuite.verifyOutputPath(
+		18, 88,
+		40, 1020,
 	)
 }
 
