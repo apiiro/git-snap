@@ -64,7 +64,6 @@ var (
 		"psd",
 		"rar",
 		"rpm",
-		"rst",
 		"rtf",
 		"s7z",
 		"shar",
