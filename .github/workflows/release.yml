@@ -1,0 +1,28 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The name of the branch to use for the operation.
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v2
+      
+    - name: build application
+      run: make
+
+    - name: Create Release
+      uses: ncipollo/release-action@v1.11.2
+      with:
+        artifacts: "bin/*.zip"
+        tag_name: ${{inputs.tag}}
+        release_name: "Release ${{inputs.tag}}"
