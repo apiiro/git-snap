@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const VERSION = "1.7.1"
+const VERSION = "1.7.2-alpha"
 
 func main() {
 	cli.AppHelpTemplate =
