@@ -16,7 +16,7 @@ endif
 	GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-osx .
 
 build-linux:
-	docker run --rm -v $(shell pwd):/app -w /app golang:1.17.7-alpine /bin/sh -c "GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux ."
+	docker run --rm -v $(shell pwd):/app -w /app golang:1.20-alpine /bin/sh -c "GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux ."
 
 clean:
 	rm -rf ./bin
