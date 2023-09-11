@@ -3,20 +3,23 @@ package git
 import (
 	"errors"
 	"fmt"
-	"github.com/avast/retry-go"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/filemode"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/storage/filesystem/dotgit"
-	"github.com/gobwas/glob"
 	"gitsnap/options"
 	"gitsnap/util"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/avast/retry-go"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
+	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"github.com/go-git/go-git/v5/storage/filesystem/dotgit"
+	"github.com/gobwas/glob"
 )
 
 const (
@@ -73,17 +76,17 @@ func Snapshot(opts *options.Options) (err error) {
 	var filesCount int
 	var filesCountDryRun int
 	if opts.SkipDoubleCheck {
-		filesCount, err = provider.snapshot(commit, opts.OutputPath, false)
+		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, false)
 		if err != nil {
 			return err
 		}
 	} else {
-		filesCountDryRun, err = provider.snapshot(commit, opts.OutputPath, true)
+		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, true)
 		if err != nil {
 			return err
 		}
 
-		filesCount, err = provider.snapshot(commit, opts.OutputPath, false)
+		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, false)
 		if err != nil {
 			return err
 		}
@@ -94,7 +97,7 @@ func Snapshot(opts *options.Options) (err error) {
 			}
 		}
 
-		filesCountDryRun, err = provider.snapshot(commit, opts.OutputPath, true)
+		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, true)
 		if err != nil {
 			return err
 		}
@@ -170,18 +173,12 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 	}
 }
 
-func (provider *repositoryProvider) dumpFile(file *object.File, outputPath string) error {
-	filePath := file.Name
-
-	mode := file.Mode
+func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string) error {
+	filePath := name
+	mode := entry.Mode
 
 	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
 		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
-		return nil
-	}
-
-	if provider.opts.MaxFileSizeBytes > 0 && file.Size >= provider.opts.MaxFileSizeBytes {
-		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", filePath, file.Size)
 		return nil
 	}
 
@@ -209,9 +206,21 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 		return nil
 	}
 
+	blob, err := object.GetBlob(repository.Storer, entry.Hash)
+	if err != nil {
+		return fmt.Errorf("failed to load Blob '%v' for file '%v': %v", entry.Hash, filePath, err)
+	}
+
+	file := object.NewFile(name, entry.Mode, blob)
+
+	if provider.opts.MaxFileSizeBytes > 0 && file.Size >= provider.opts.MaxFileSizeBytes {
+		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", filePath, file.Size)
+		return nil
+	}
+
 	targetFilePath := filepath.Join(outputPath, filePath)
 	targetDirectoryPath := filepath.Dir(targetFilePath)
-	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
+	err = os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
 		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
 	}
@@ -254,20 +263,38 @@ func (provider *repositoryProvider) dumpFile(file *object.File, outputPath strin
 	return nil
 }
 
-func (provider *repositoryProvider) snapshot(commit *object.Commit, outputPath string, dryRun bool) (int, error) {
+func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, dryRun bool) (int, error) {
 
 	tree, err := commit.Tree()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err)
 	}
 	count := 0
-	err = tree.Files().ForEach(func(file *object.File) error {
-		count++
-		if dryRun {
-			return nil
+
+	treeWalker := object.NewTreeWalker(tree, true, nil)
+	defer treeWalker.Close()
+
+	for {
+		name, entry, err := treeWalker.Next()
+		if err == io.EOF {
+			return count, nil
 		}
-		return provider.dumpFile(file, outputPath)
-	})
+
+		if err != nil {
+			return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
+		}
+
+		count++
+		if !dryRun {
+			if entry.Mode.IsFile() {
+				err := provider.dumpFile(repository, name, &entry, outputPath)
+				if err != nil {
+					break
+				}
+			}
+		}
+	}
+
 	if err != nil {
 		if errors.Is(err, dotgit.ErrPackfileNotFound) {
 			return 0, util.ErrorWithCode{
