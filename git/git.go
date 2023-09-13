@@ -208,7 +208,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 
 	blob, err := object.GetBlob(repository.Storer, entry.Hash)
 	if err != nil {
-		return fmt.Errorf("failed to load Blob '%v' for file '%v': %v", entry.Hash, filePath, err)
+		return err
 	}
 
 	file := object.NewFile(name, entry.Mode, blob)
@@ -275,19 +275,19 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 	defer treeWalker.Close()
 
 	for {
-		name, entry, err := treeWalker.Next()
-		if err == io.EOF {
+		name, entry, walkErr := treeWalker.Next()
+		if walkErr == io.EOF {
 			return count, nil
 		}
 
-		if err != nil {
+		if walkErr != nil {
 			return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 		}
 
 		count++
 		if !dryRun {
 			if entry.Mode.IsFile() {
-				err := provider.dumpFile(repository, name, &entry, outputPath)
+				err = provider.dumpFile(repository, name, &entry, outputPath)
 				if err != nil {
 					break
 				}
