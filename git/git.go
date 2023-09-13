@@ -289,7 +289,12 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 			if entry.Mode.IsFile() {
 				err = provider.dumpFile(repository, name, &entry, outputPath)
 				if err != nil {
-					break
+					if errors.Is(err, plumbing.ErrObjectNotFound) {
+						log.Printf("Can't get blob %s: %s", name, err)
+						err = nil
+					} else {
+						break
+					}
 				}
 			}
 		}
