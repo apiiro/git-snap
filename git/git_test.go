@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bufio"
 	"fmt"
 	"gitsnap/options"
 	"io/fs"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -116,6 +118,30 @@ func (gitSuite *gitTestSuite) verifyOutputPath(
 	expectedMaxFileSize int,
 ) {
 	gitSuite.verifyOutputPathAux(expectedDirCount, expectedFileCount, expectedMinFileSize, expectedMaxFileSize, gitSuite.outputPath)
+}
+
+func (gitSuite *gitTestSuite) verifyIndexFile(
+	expectedFileCount int,
+	indexFile string,
+) {
+	file, err := os.Open(indexFile)
+	gitSuite.Require().Nil(err)
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	fileCount := 0
+	for scanner.Scan() {
+		fields := strings.Split(scanner.Text(), "\t")
+		fileStat, err := os.Stat(gitSuite.outputPath + "/" + fields[0])
+
+		gitSuite.Require().Nil(err)
+		gitSuite.Require().False(fileStat.IsDir())
+
+		fileCount++
+	}
+
+	gitSuite.Require().Nil(err)
+	gitSuite.Require().EqualValues(fileCount, expectedFileCount, "unexpected files count")
 }
 
 func (gitSuite *gitTestSuite) TestSnapshotForRegularCommit() {
@@ -445,4 +471,43 @@ func (gitSuite *gitTestSuite) TestSnapshotForRegularCommitMultipleTimesAndConcur
 			<-barrier
 		}
 	}
+}
+
+func (gitSuite *gitTestSuite) TestSnapshotWithInvalidIndexPath() {
+	err := Snapshot(&options.Options{
+		ClonePath:             gitSuite.filteredClonePath,
+		Revision:              "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:            gitSuite.outputPath,
+		IncludePatterns:       []string{},
+		ExcludePatterns:       []string{},
+		VerboseLogging:        true,
+		TextFilesOnly:         false,
+		CreateHashMarkers:     true,
+		MaxFileSizeBytes:      6 * 1024 * 1024,
+		OptionalIndexFilePath: "non/existing/file/path/index.csv",
+	})
+	gitSuite.NotNil(err)
+}
+
+func (gitSuite *gitTestSuite) TestSnapshotWithIndexPath() {
+	indexFilePath := gitSuite.outputPath + "/" + "__index.csv"
+
+	err := Snapshot(&options.Options{
+		ClonePath:       gitSuite.clonePath,
+		Revision:        "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:      gitSuite.outputPath,
+		IncludePatterns: []string{},
+		ExcludePatterns: []string{
+			"*.java",
+			"*/pom.xml",
+		},
+		VerboseLogging:        true,
+		TextFilesOnly:         false,
+		CreateHashMarkers:     false,
+		MaxFileSizeBytes:      6 * 1024 * 1024,
+		OptionalIndexFilePath: indexFilePath,
+	})
+
+	gitSuite.Nil(err)
+	gitSuite.verifyIndexFile(13, indexFilePath)
 }

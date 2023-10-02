@@ -2,11 +2,12 @@ package options
 
 import (
 	"fmt"
-	"github.com/urfave/cli/v2"
 	"gitsnap/util"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/urfave/cli/v2"
 )
 
 var Flags = []cli.Flag{
@@ -21,6 +22,12 @@ var Flags = []cli.Flag{
 		Aliases:  []string{"r"},
 		Usage:    "commit-ish Revision",
 		Required: true,
+	},
+	&cli.StringFlag{
+		Name:     "index",
+		Aliases:  []string{"x"},
+		Usage:    "Create index file listing file paths and their blob IDs",
+		Required: false,
 	},
 	&cli.StringFlag{
 		Name:     "out",
@@ -88,18 +95,19 @@ var Flags = []cli.Flag{
 }
 
 type Options struct {
-	ClonePath          string
-	Revision           string
-	OutputPath         string
-	IncludePatterns    []string
-	ExcludePatterns    []string
-	VerboseLogging     bool
-	TextFilesOnly      bool
-	CreateHashMarkers  bool
-	IgnoreCasePatterns bool
-	MaxFileSizeBytes   int64
-	SkipDoubleCheck    bool
-	IncludeNoiseDirs   bool
+	ClonePath             string
+	Revision              string
+	OutputPath            string
+	OptionalIndexFilePath string
+	IncludePatterns       []string
+	ExcludePatterns       []string
+	VerboseLogging        bool
+	TextFilesOnly         bool
+	CreateHashMarkers     bool
+	IgnoreCasePatterns    bool
+	MaxFileSizeBytes      int64
+	SkipDoubleCheck       bool
+	IncludeNoiseDirs      bool
 }
 
 func splitListFlag(flag string) []string {
@@ -132,18 +140,19 @@ func validateDirectory(dirPath string, createIfNotExist bool) error {
 
 func ParseOptions(c *cli.Context) (*Options, error) {
 	opts := &Options{
-		ClonePath:          c.String("src"),
-		Revision:           c.String("rev"),
-		OutputPath:         c.String("out"),
-		IncludePatterns:    splitListFlag(c.String("include")),
-		ExcludePatterns:    splitListFlag(c.String("exclude")),
-		VerboseLogging:     c.Bool("verbose"),
-		TextFilesOnly:      c.Bool("text-only"),
-		CreateHashMarkers:  c.Bool("hash-markers"),
-		IgnoreCasePatterns: c.Bool("ignore-case"),
-		MaxFileSizeBytes:   int64(c.Int("max-size")) * 1024 * 1024,
-		SkipDoubleCheck:    c.Bool("no-double-check"),
-		IncludeNoiseDirs:   c.Bool("include-noise-dirs"),
+		ClonePath:             c.String("src"),
+		Revision:              c.String("rev"),
+		OutputPath:            c.String("out"),
+		IncludePatterns:       splitListFlag(c.String("include")),
+		ExcludePatterns:       splitListFlag(c.String("exclude")),
+		VerboseLogging:        c.Bool("verbose"),
+		TextFilesOnly:         c.Bool("text-only"),
+		CreateHashMarkers:     c.Bool("hash-markers"),
+		IgnoreCasePatterns:    c.Bool("ignore-case"),
+		MaxFileSizeBytes:      int64(c.Int("max-size")) * 1024 * 1024,
+		SkipDoubleCheck:       c.Bool("no-double-check"),
+		IncludeNoiseDirs:      c.Bool("include-noise-dirs"),
+		OptionalIndexFilePath: c.String("index"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)
