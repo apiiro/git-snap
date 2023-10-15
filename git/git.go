@@ -56,13 +56,9 @@ func Snapshot(opts *options.Options) (err error) {
 		}
 	}
 
-	var headCommit *object.Commit
-	headCommit, err = provider.getCommit("HEAD")
+	_, err = provider.getCommit("HEAD")
 	if err != nil {
-		return fmt.Errorf("failed to resolved HEAD revision: %v", err)
-	}
-	if headCommit == nil {
-		return nil
+		return fmt.Errorf("failed to resolve HEAD revision: %v", err)
 	}
 
 	var commit *object.Commit
@@ -114,12 +110,6 @@ func Snapshot(opts *options.Options) (err error) {
 }
 
 func (provider *repositoryProvider) getCommit(commitish string) (*object.Commit, error) {
-
-	_, err := provider.repository.Head()
-	if err == plumbing.ErrReferenceNotFound {
-		log.Printf("repository is detected as empty -- nothing to do")
-		return nil, nil
-	}
 
 	hash, err := provider.repository.ResolveRevision(plumbing.Revision(commitish))
 	if err != nil {
