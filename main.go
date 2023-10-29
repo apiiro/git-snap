@@ -32,7 +32,7 @@ EXIT CODES:
 	204	Short sha is not supported
 	205	Provided revision could not be found
 	206 Double check for files discrepancy failed
-	207 No HEAD ref found
+	207 HEAD ref not found
 	1	Any other error
 `
 

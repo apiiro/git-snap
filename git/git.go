@@ -59,7 +59,7 @@ func Snapshot(opts *options.Options) (err error) {
 	_, err = provider.getCommit("HEAD")
 	if err != nil {
 	    return &util.ErrorWithCode{
-                StatusCode:    util.ERROR_NO_HEAD_REF,
+                StatusCode:    util.ERROR_HEAD_REF_NOT_FOUND,
                 InternalError: fmt.Errorf("failed to resolve HEAD revision: %v", err),
             }
 	}
