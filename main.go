@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const VERSION = "1.10"
+const VERSION = "1.11"
 
 func main() {
 	cli.AppHelpTemplate =
@@ -32,6 +32,7 @@ EXIT CODES:
 	204	Short sha is not supported
 	205	Provided revision could not be found
 	206 Double check for files discrepancy failed
+	207 No HEAD ref found
 	1	Any other error
 `
 
