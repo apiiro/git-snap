@@ -134,8 +134,9 @@ func (gitSuite *gitTestSuite) verifyIndexFile(
 		fields := strings.Split(scanner.Text(), "\t")
 		fileStat, err := os.Stat(gitSuite.outputPath + "/" + fields[0])
 
-		gitSuite.Require().Nil(err)
-		gitSuite.Require().False(fileStat.IsDir())
+		if err == nil {
+			gitSuite.Require().Equal(fileStat.IsDir(), fields[2] != "true")
+		}
 
 		fileCount++
 	}
@@ -509,5 +510,5 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIndexPath() {
 	})
 
 	gitSuite.Nil(err)
-	gitSuite.verifyIndexFile(13, indexFilePath)
+	gitSuite.verifyIndexFile(208, indexFilePath)
 }

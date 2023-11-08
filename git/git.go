@@ -58,10 +58,10 @@ func Snapshot(opts *options.Options) (err error) {
 
 	_, err = provider.getCommit("HEAD")
 	if err != nil {
-	    return &util.ErrorWithCode{
-                StatusCode:    util.ERROR_HEAD_REF_NOT_FOUND,
-                InternalError: fmt.Errorf("failed to resolve HEAD revision: %v", err),
-            }
+		return &util.ErrorWithCode{
+			StatusCode:    util.ERROR_HEAD_REF_NOT_FOUND,
+			InternalError: fmt.Errorf("failed to resolve HEAD revision: %v", err),
+		}
 	}
 
 	var commit *object.Commit
@@ -168,43 +168,6 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 
 func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexFile *os.File) error {
 	filePath := name
-	mode := entry.Mode
-
-	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
-		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
-		return nil
-	}
-
-	filePathToCheck := filePath
-	if provider.opts.IgnoreCasePatterns {
-		filePathToCheck = strings.ToLower(filePathToCheck)
-	}
-
-	skip := true
-	hasIncludePatterns := len(provider.includePatterns) > 0
-	if hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns) {
-		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
-		return nil
-	} else if hasIncludePatterns {
-		skip = false
-	}
-
-	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) && skip {
-		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
-		return nil
-	}
-
-	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePathToCheck)) {
-		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
-		return nil
-	}
-
-	if indexFile != nil {
-		_, err := indexFile.WriteString(fmt.Sprintf("%v\t%v\n", name, entry.Hash.String()))
-		if err != nil {
-			return err
-		}
-	}
 
 	blob, err := object.GetBlob(repository.Storer, entry.Hash)
 	if err != nil {
@@ -263,6 +226,16 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 	return nil
 }
 
+func addEntryToIndexFile(indexFile *os.File, name string, entry *object.TreeEntry) error {
+	if indexFile != nil {
+		_, err := indexFile.WriteString(fmt.Sprintf("%v\t%v\t%v\n", name, entry.Hash.String(), entry.Mode.IsFile()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, dryRun bool) (int, error) {
 
 	tree, err := commit.Tree()
@@ -298,16 +271,9 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 		count++
 		if !dryRun {
-			if entry.Mode.IsFile() {
-				err = provider.dumpFile(repository, name, &entry, outputPath, indexOutputFile)
-				if err != nil {
-					if errors.Is(err, plumbing.ErrObjectNotFound) {
-						log.Printf("Can't get blob %s: %s", name, err)
-						err = nil
-					} else {
-						break
-					}
-				}
+			err = visitEntry(indexOutputFile, name, entry, provider, repository, outputPath)
+			if err != nil {
+				break
 			}
 		}
 	}
@@ -329,6 +295,54 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 	}
 	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
 	return count, nil
+}
+
+func visitEntry(indexOutputFile *os.File, name string, entry object.TreeEntry, provider *repositoryProvider, repository *git.Repository, outputPath string) error {
+	filePath := name
+	mode := entry.Mode
+
+	err := addEntryToIndexFile(indexOutputFile, name, &entry)
+	if err != nil {
+		return err
+	}
+
+	filePathToCheck := filePath
+	if provider.opts.IgnoreCasePatterns {
+		filePathToCheck = strings.ToLower(filePathToCheck)
+	}
+
+	skip := true
+	hasIncludePatterns := len(provider.includePatterns) > 0
+	if hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns) {
+		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
+		return nil
+	} else if hasIncludePatterns {
+		skip = false
+	}
+
+	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) && skip {
+		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
+		return nil
+	}
+
+	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePathToCheck)) {
+		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
+		return nil
+	}
+
+	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
+		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
+		return nil
+	}
+
+	if entry.Mode.IsFile() {
+		err = provider.dumpFile(repository, name, &entry, outputPath, indexOutputFile)
+		if errors.Is(err, plumbing.ErrObjectNotFound) {
+			log.Printf("Can't get blob %s: %s", name, err)
+			err = nil
+		}
+	}
+	return err
 }
 
 func (provider *repositoryProvider) isSymlink(filePath string, mode filemode.FileMode) bool {
