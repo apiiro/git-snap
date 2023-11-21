@@ -218,10 +218,11 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		return nil
 	}
 
+    fileName := filepath.Base(filePath)
 	targetFilePath := filepath.Join(outputPath, filePath)
 	targetDirectoryPath := filepath.Dir(targetFilePath)
 	
-	if len(filePath) > 255 {
+	if len(fileName) > 255 || len(filePath) > 4095 {
 	    log.Printf("--- skipping '%v' - file name is too long to snapshot", filePath)
 	    return nil
 	}
