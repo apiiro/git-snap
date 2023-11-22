@@ -218,7 +218,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		return nil
 	}
 
-    fileName := filepath.Base(filePath)
+	fileName := filepath.Base(filePath)
 	targetFilePath := filepath.Join(outputPath, filePath)
 	targetDirectoryPath := filepath.Dir(targetFilePath)
 	
