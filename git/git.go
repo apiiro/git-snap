@@ -218,8 +218,15 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		return nil
 	}
 
+	fileName := filepath.Base(filePath)
 	targetFilePath := filepath.Join(outputPath, filePath)
 	targetDirectoryPath := filepath.Dir(targetFilePath)
+	
+	if len(fileName) > 255 || len(filePath) > 4095 {
+	    log.Printf("--- skipping '%v' - file name is too long to snapshot", filePath)
+	    return nil
+	}
+	
 	err = os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
 		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
