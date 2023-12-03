@@ -302,7 +302,7 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 		count++
 		if !dryRun {
-			err := addEntryToIndexFile(indexOutputFile, name, &entry)
+			err = addEntryToIndexFile(indexOutputFile, name, &entry)
 			if err != nil {
 				break
 			}
