@@ -29,6 +29,13 @@ var Flags = []cli.Flag{
 		Usage:    "Create index file listing file paths and their blob IDs",
 		Required: false,
 	},
+	&cli.BoolFlag{
+		Name:     "index-only",
+		Aliases:  []string{"xo"},
+		Value:    false,
+		Usage:    "Create index only - Don't checkout any files",
+		Required: false,
+	},
 	&cli.StringFlag{
 		Name:     "out",
 		Aliases:  []string{"o"},
@@ -99,6 +106,7 @@ type Options struct {
 	Revision              string
 	OutputPath            string
 	OptionalIndexFilePath string
+	IndexOnly             bool
 	IncludePatterns       []string
 	ExcludePatterns       []string
 	VerboseLogging        bool
@@ -153,6 +161,7 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		SkipDoubleCheck:       c.Bool("no-double-check"),
 		IncludeNoiseDirs:      c.Bool("include-noise-dirs"),
 		OptionalIndexFilePath: c.String("index"),
+		IndexOnly:             c.Bool("index-only"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)
@@ -171,11 +180,13 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		}
 	}
 
-	err = validateDirectory(opts.OutputPath, true)
-	if err != nil {
-		return nil, &util.ErrorWithCode{
-			StatusCode:    util.ERROR_BAD_OUTPUT_PATH,
-			InternalError: err,
+	if !opts.IndexOnly {
+		err = validateDirectory(opts.OutputPath, true)
+		if err != nil {
+			return nil, &util.ErrorWithCode{
+				StatusCode:    util.ERROR_BAD_OUTPUT_PATH,
+				InternalError: err,
+			}
 		}
 	}
 
