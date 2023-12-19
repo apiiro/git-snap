@@ -193,17 +193,6 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		return nil
 	}
 
-	if indexFile != nil {
-		_, err := indexFile.WriteString(fmt.Sprintf("%v\t%v\n", name, entry.Hash.String()))
-		if err != nil {
-			return err
-		}
-
-		if indexOnly {
-			return nil
-		}
-	}
-
 	blob, err := object.GetBlob(repository.Storer, entry.Hash)
 	if err != nil {
 		return err
@@ -268,6 +257,16 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 	return nil
 }
 
+func addEntryToIndexFile(indexFile *os.File, name string, entry *object.TreeEntry) error {
+	if indexFile != nil {
+		_, err := indexFile.WriteString(fmt.Sprintf("%v\t%v\t%v\n", name, entry.Hash.String(), entry.Mode.IsFile()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, indexOnly bool, dryRun bool) (int, error) {
 
 	tree, err := commit.Tree()
@@ -303,6 +302,15 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 		count++
 		if !dryRun {
+			err = addEntryToIndexFile(indexOutputFile, name, &entry)
+			if err != nil {
+				break
+			}
+
+			if indexOnly {
+				continue
+			}
+
 			if entry.Mode.IsFile() {
 				err = provider.dumpFile(repository, name, &entry, outputPath, indexOutputFile, indexOnly)
 				if err != nil {
