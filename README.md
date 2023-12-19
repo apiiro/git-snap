@@ -6,14 +6,16 @@ Tool to create a git revision snapshot for an existing repository clone.
 
 ```
 NAME:
-   git-snap - 1.6.0 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
+   git-snap - 1.14 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
 
 USAGE:
-   git-snap --src value --rev value --out value         [optional flags]
+   git-snap --src value --rev value   --out value          [optional flags]
 
 OPTIONS:
    --src value, -s value      path to existing git clone as source directory, may contain no more than .git directory, current git state doesn't affect the command
    --rev value, -r value      commit-ish Revision
+   --index value, -x value    Create index file listing file paths and their blob IDs
+   --index-only, --xo         Create index only - Don't checkout any files (default: false)
    --out value, -o value      output directory. will be created if does not exist
    --include value, -i value  patterns of file paths to include, comma delimited, may contain any glob pattern
    --exclude value, -e value  patterns of file paths to exclude, comma delimited, may contain any glob pattern
@@ -26,16 +28,17 @@ OPTIONS:
    --include-noise-dirs       don't filter out noisy directory names in paths (bin, node_modules etc) (default: false)
    --help, -h                 show help (default: false)
    --version, -v              print the version (default: false)
-
+   
 EXIT CODES:
   0   Success
+  101 Some file name is too long
   201  Clone path is invalid (fs-wise)
   202  Clone path is invalid (git-wise)
   203  Output path is invalid
   204  Short sha is not supported
   205  Provided revision could not be found
-  206  Double check for files discrepancy failed
-  207  No HEAD ref found
+  206 Double check for files discrepancy failed
+  207 HEAD ref not found
   1  Any other error
 ```
 

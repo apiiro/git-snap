@@ -69,17 +69,17 @@ func Snapshot(opts *options.Options) (err error) {
 	var filesCount int
 	var filesCountDryRun int
 	if opts.SkipDoubleCheck {
-		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, false)
+		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 		if err != nil {
 			return err
 		}
 	} else {
-		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, true)
+		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
 		if err != nil {
 			return err
 		}
 
-		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, false)
+		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func Snapshot(opts *options.Options) (err error) {
 			}
 		}
 
-		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, true)
+		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
 		if err != nil {
 			return err
 		}
@@ -160,7 +160,7 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 	}
 }
 
-func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexFile *os.File) error {
+func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexFile *os.File, indexOnly bool) error {
 	filePath := name
 	mode := entry.Mode
 
@@ -267,7 +267,7 @@ func addEntryToIndexFile(indexFile *os.File, name string, entry *object.TreeEntr
 	return nil
 }
 
-func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, dryRun bool) (int, error) {
+func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, indexOnly bool, dryRun bool) (int, error) {
 
 	tree, err := commit.Tree()
 	if err != nil {
@@ -307,8 +307,12 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 				break
 			}
 
+			if indexOnly {
+				continue
+			}
+
 			if entry.Mode.IsFile() {
-				err = provider.dumpFile(repository, name, &entry, outputPath, indexOutputFile)
+				err = provider.dumpFile(repository, name, &entry, outputPath, indexOutputFile, indexOnly)
 				if err != nil {
 					if errors.Is(err, plumbing.ErrObjectNotFound) {
 						log.Printf("Can't get blob %s: %s", name, err)
