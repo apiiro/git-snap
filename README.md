@@ -6,7 +6,7 @@ Tool to create a git revision snapshot for an existing repository clone.
 
 ```
 NAME:
-   git-snap - 1.14 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
+   git-snap - 1.15 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
 
 USAGE:
    git-snap --src value --rev value   --out value          [optional flags]
@@ -45,9 +45,9 @@ EXIT CODES:
 ## Examples
 
 ```bash
-git snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master
-git snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
-git snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
+git-snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master
+git-snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java" --exclude "**/test/**"
+git-snap --src /var/shared/git/dc-heacth --rev master --out /tmp/dc-heacth-master --include "**/*.java,pom.xml"
 ```
 
 ## Install

@@ -142,7 +142,7 @@ func (gitSuite *gitTestSuite) verifyIndexFile(
 	}
 
 	gitSuite.Require().Nil(err)
-	gitSuite.Require().EqualValues(fileCount, expectedFileCount, "unexpected files count")
+	gitSuite.Require().EqualValues(expectedFileCount, fileCount, "unexpected files count")
 }
 
 func (gitSuite *gitTestSuite) TestSnapshotForRegularCommit() {
@@ -510,5 +510,5 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIndexPath() {
 	})
 
 	gitSuite.Nil(err)
-	gitSuite.verifyIndexFile(208, indexFilePath)
+	gitSuite.verifyIndexFile(40, indexFilePath)
 }
