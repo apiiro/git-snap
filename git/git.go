@@ -160,13 +160,13 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 	}
 }
 
-func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexFile *os.File, indexOnly bool) error {
+func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexOnly bool) (error, bool) {
 	filePath := name
 	mode := entry.Mode
 
 	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
 		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
-		return nil
+		return nil, false
 	}
 
 	filePathToCheck := filePath
@@ -178,31 +178,31 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 	hasIncludePatterns := len(provider.includePatterns) > 0
 	if hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns) {
 		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
-		return nil
+		return nil, false
 	} else if hasIncludePatterns {
 		skip = false
 	}
 
 	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) && skip {
 		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
-		return nil
+		return nil, false
 	}
 
 	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePathToCheck)) {
 		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
-		return nil
+		return nil, false
 	}
 
 	blob, err := object.GetBlob(repository.Storer, entry.Hash)
 	if err != nil {
-		return err
+		return err, false
 	}
 
 	file := object.NewFile(name, entry.Mode, blob)
 
 	if provider.opts.MaxFileSizeBytes > 0 && file.Size >= provider.opts.MaxFileSizeBytes {
 		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", filePath, file.Size)
-		return nil
+		return nil, false
 	}
 
 	fileName := filepath.Base(filePath)
@@ -211,12 +211,16 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 
 	if len(fileName) > 255 || len(filePath) > 4095 {
 		log.Printf("--- skipping '%v' - file name is too long to snapshot", filePath)
-		return nil
+		return nil, false
+	}
+
+	if indexOnly {
+		return nil, true
 	}
 
 	err = os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
-		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
+		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err), false
 	}
 
 	var contents string
@@ -228,7 +232,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err)
+		return fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err), false
 	}
 
 	contentsBytes := []byte(contents)
@@ -239,9 +243,9 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 			return util.ErrorWithCode{
 				StatusCode:    util.ERROR_PATH_TOO_LONG,
 				InternalError: err,
-			}
+			}, false
 		}
-		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
+		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err), false
 	}
 
 	provider.verboseLog("+++ '%v' to '%v'", filePath, targetFilePath)
@@ -254,7 +258,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		}
 	}
 
-	return nil
+	return nil, true
 }
 
 func addEntryToIndexFile(indexFile *os.File, name string, entry *object.TreeEntry) error {
@@ -302,25 +306,24 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 		count++
 		if !dryRun {
-			err = addEntryToIndexFile(indexOutputFile, name, &entry)
-			if err != nil {
-				break
-			}
-
-			if indexOnly {
-				continue
-			}
-
 			if entry.Mode.IsFile() {
-				err = provider.dumpFile(repository, name, &entry, outputPath, indexOutputFile, indexOnly)
+				err, didSnap := provider.dumpFile(repository, name, &entry, outputPath, indexOnly)
 				if err != nil {
 					if errors.Is(err, plumbing.ErrObjectNotFound) {
 						log.Printf("Can't get blob %s: %s", name, err)
-						err = nil
 					} else {
 						break
 					}
 				}
+
+				if !didSnap {
+					continue
+				}
+			}
+
+			err = addEntryToIndexFile(indexOutputFile, name, &entry)
+			if err != nil {
+				break
 			}
 		}
 	}
