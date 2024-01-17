@@ -99,6 +99,12 @@ var Flags = []cli.Flag{
 		Usage:    "don't filter out noisy directory names in paths (bin, node_modules etc)",
 		Required: false,
 	},
+	&cli.StringFlag{
+		Name:     "paths-file-location",
+		Aliases:  []string{"pl"},
+		Usage:    "a location of a text file with all the paths to snap (one path per line)",
+		Required: false,
+	},
 }
 
 type Options struct {
@@ -116,6 +122,7 @@ type Options struct {
 	MaxFileSizeBytes      int64
 	SkipDoubleCheck       bool
 	IncludeNoiseDirs      bool
+	PathsFileLocation     string
 }
 
 func splitListFlag(flag string) []string {
@@ -162,6 +169,7 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		IncludeNoiseDirs:      c.Bool("include-noise-dirs"),
 		OptionalIndexFilePath: c.String("index"),
 		IndexOnly:             c.Bool("index-only"),
+		PathsFileLocation:     c.String("paths-file-location"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)
