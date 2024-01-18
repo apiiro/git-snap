@@ -200,9 +200,14 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		filePathToCheck = strings.ToLower(filePathToCheck)
 	}
 
+	if !isFileInList(provider, filePathToCheck) {
+		provider.verboseLog("--- skipping '%v' - not matching file list", filePath)
+		return nil, false
+	}
+
 	skip := true
 	hasIncludePatterns := len(provider.includePatterns) > 0
-	if !isFileInList(provider, filePathToCheck) || (hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns)) {
+	if hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns) {
 		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
 		return nil, false
 	} else if hasIncludePatterns {
@@ -289,8 +294,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 
 func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
 	_, inFileList := provider.fileListToSnap[filePathToCheck]
-	inFileList = inFileList || len(provider.fileListToSnap) == 0
-	return inFileList
+	return inFileList || len(provider.fileListToSnap) == 0
 }
 
 func addEntryToIndexFile(indexFile *os.File, name string, entry *object.TreeEntry) error {
