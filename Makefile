@@ -13,10 +13,10 @@ build-osx:
 ifneq ($(shell uname -s),Darwin)
 	$(error this makefile assumes you're building from mac env)
 endif
-	GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-osx .
+	GO111MODULE=on CGO_ENABLED=0 GOARCH=amd64 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-osx .
 
 build-linux:
-	docker run --rm -v $(shell pwd):/app -w /app golang:1.20-alpine /bin/sh -c "GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux ."
+	docker run --rm -v $(shell pwd):/app -w /app --platform=linux/amd64 golang:1.20-alpine3.18 /bin/sh -c "GO111MODULE=on CGO_ENABLED=0 GOARCH=amd64 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux ."
 
 clean:
 	rm -rf ./bin

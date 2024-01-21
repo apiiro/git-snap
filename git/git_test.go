@@ -512,3 +512,43 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIndexPath() {
 	gitSuite.Nil(err)
 	gitSuite.verifyIndexFile(40, indexFilePath)
 }
+
+func (gitSuite *gitTestSuite) TestSnapshotWithPathsFile() {
+	filesDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		panic(err)
+	}
+
+	filePath := filepath.Join(filesDir, "file.txt")
+
+	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+
+	if err != nil {
+		gitSuite.Nil(err)
+		return
+	}
+
+	data := []byte("src/main/java/com/dchealth/VO/DataElementFormat.java")
+	_, err = file.Write(data)
+
+	if err != nil {
+		err = fmt.Errorf("Failed to write paths file: '%v'", err)
+		fmt.Println(err)
+		gitSuite.Nil(err)
+		return
+	}
+
+	file.Close()
+
+	err = Snapshot(&options.Options{
+		ClonePath:         gitSuite.clonePath,
+		Revision:          "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:        gitSuite.outputPath,
+		IncludePatterns:   []string{},
+		ExcludePatterns:   []string{},
+		PathsFileLocation: filePath,
+	})
+
+	gitSuite.Nil(err)
+	gitSuite.verifyOutputPath(7, 1, 1696, 1696)
+}

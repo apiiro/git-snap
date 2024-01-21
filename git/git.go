@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"gitsnap/options"
@@ -30,13 +31,20 @@ type repositoryProvider struct {
 	repository      *git.Repository
 	includePatterns []glob.Glob
 	excludePatterns []glob.Glob
+	fileListToSnap  map[string]bool
 	opts            *options.Options
 }
 
 func Snapshot(opts *options.Options) (err error) {
 
 	provider := &repositoryProvider{
-		opts: opts,
+		opts:           opts,
+		fileListToSnap: map[string]bool{},
+	}
+
+	err = loadFilePathsList(opts, provider)
+	if err != nil {
+		return err
 	}
 
 	provider.includePatterns, err = provider.compileGlobs(opts.IncludePatterns, "include")
@@ -106,6 +114,24 @@ func Snapshot(opts *options.Options) (err error) {
 	return nil
 }
 
+func loadFilePathsList(opts *options.Options, provider *repositoryProvider) error {
+	if opts.PathsFileLocation != "" {
+		file, err := os.Open(opts.PathsFileLocation)
+		if err != nil {
+			return fmt.Errorf("failed to read paths file from location: '%v', error: '%v'", opts.PathsFileLocation, err)
+		}
+
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			provider.fileListToSnap[line] = true
+		}
+	}
+	return nil
+}
+
 func (provider *repositoryProvider) getCommit(commitish string) (*object.Commit, error) {
 
 	hash, err := provider.repository.ResolveRevision(plumbing.Revision(commitish))
@@ -172,6 +198,11 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 	filePathToCheck := filePath
 	if provider.opts.IgnoreCasePatterns {
 		filePathToCheck = strings.ToLower(filePathToCheck)
+	}
+
+	if !isFileInList(provider, filePathToCheck) {
+		provider.verboseLog("--- skipping '%v' - not matching file list", filePath)
+		return nil, false
 	}
 
 	skip := true
@@ -259,6 +290,11 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 	}
 
 	return nil, true
+}
+
+func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
+	_, inFileList := provider.fileListToSnap[filePathToCheck]
+	return inFileList || len(provider.fileListToSnap) == 0
 }
 
 func addEntryToIndexFile(indexFile *os.File, name string, entry *object.TreeEntry) error {

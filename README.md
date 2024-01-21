@@ -6,28 +6,29 @@ Tool to create a git revision snapshot for an existing repository clone.
 
 ```
 NAME:
-   git-snap - 1.17 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
+   git-snap - 1.18 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
 
 USAGE:
-   git-snap --src value --rev value   --out value          [optional flags]
+   git-snap --src value --rev value   --out value           [optional flags]
 
 OPTIONS:
-   --src value, -s value      path to existing git clone as source directory, may contain no more than .git directory, current git state doesn't affect the command
-   --rev value, -r value      commit-ish Revision
-   --index value, -x value    Create index file listing file paths and their blob IDs
-   --index-only, --xo         Create index only - Don't checkout any files (default: false)
-   --out value, -o value      output directory. will be created if does not exist
-   --include value, -i value  patterns of file paths to include, comma delimited, may contain any glob pattern
-   --exclude value, -e value  patterns of file paths to exclude, comma delimited, may contain any glob pattern
-   --verbose, --vv            verbose logging (default: false)
-   --text-only                include only text files (default: false)
-   --hash-markers             create also hint files mirroring the hash of original files at <path>.hash (default: false)
-   --ignore-case              ignore case when checking path against inclusion patterns (default: false)
-   --max-size value           maximal file size, in MB (default: 6)
-   --no-double-check          disable files discrepancy double check (default: false)
-   --include-noise-dirs       don't filter out noisy directory names in paths (bin, node_modules etc) (default: false)
-   --help, -h                 show help (default: false)
-   --version, -v              print the version (default: false)
+   --src value, -s value                    path to existing git clone as source directory, may contain no more than .git directory, current git state doesn't affect the command
+   --rev value, -r value                    commit-ish Revision
+   --index value, -x value                  Create index file listing file paths and their blob IDs
+   --index-only, --xo                       Create index only - Don't checkout any files (default: false)
+   --out value, -o value                    output directory. will be created if does not exist
+   --include value, -i value                patterns of file paths to include, comma delimited, may contain any glob pattern
+   --exclude value, -e value                patterns of file paths to exclude, comma delimited, may contain any glob pattern
+   --verbose, --vv                          verbose logging (default: false)
+   --text-only                              include only text files (default: false)
+   --hash-markers                           create also hint files mirroring the hash of original files at <path>.hash (default: false)
+   --ignore-case                            ignore case when checking path against inclusion patterns (default: false)
+   --max-size value                         maximal file size, in MB (default: 6)
+   --no-double-check                        disable files discrepancy double check (default: false)
+   --include-noise-dirs                     don't filter out noisy directory names in paths (bin, node_modules etc) (default: false)
+   --paths-file-location value, --pl value  a location of a text file with all the paths to snap (one path per line)
+   --help, -h                               show help (default: false)
+   --version, -v                            print the version (default: false)
    
 EXIT CODES:
   0   Success
