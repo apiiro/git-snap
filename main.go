@@ -33,6 +33,7 @@ EXIT CODES:
 	205	Provided revision could not be found
 	206 Double check for files discrepancy failed
 	207 HEAD ref not found
+	208 tree not found
 	1	Any other error
 `
 
