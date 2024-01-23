@@ -311,7 +311,10 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 	tree, err := commit.Tree()
 	if err != nil {
-		return 0, fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err)
+        return 0, util.ErrorWithCode{
+            StatusCode:    util.ERROR_TREE_NOT_FOUND,
+            InternalError: fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err),
+        }
 	}
 	count := 0
 
