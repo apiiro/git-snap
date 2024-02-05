@@ -271,7 +271,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 	err = ioutil.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
 		if strings.Contains(err.Error(), "file name too long") {
-			return util.ErrorWithCode{
+			return &util.ErrorWithCode{
 				StatusCode:    util.ERROR_PATH_TOO_LONG,
 				InternalError: err,
 			}, false
@@ -311,10 +311,10 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 	tree, err := commit.Tree()
 	if err != nil {
-        return 0, util.ErrorWithCode{
-            StatusCode:    util.ERROR_TREE_NOT_FOUND,
-            InternalError: fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err),
-        }
+		return 0, &util.ErrorWithCode{
+			StatusCode:    util.ERROR_TREE_NOT_FOUND,
+			InternalError: fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err),
+		}
 	}
 	count := 0
 
@@ -369,13 +369,13 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 	if err != nil {
 		if errors.Is(err, dotgit.ErrPackfileNotFound) {
-			return 0, util.ErrorWithCode{
+			return 0, &util.ErrorWithCode{
 				StatusCode:    util.ERROR_BAD_CLONE_GIT,
 				InternalError: err,
 			}
 		}
 		if errors.Is(err, plumbing.ErrObjectNotFound) {
-			return 0, util.ErrorWithCode{
+			return 0, &util.ErrorWithCode{
 				StatusCode:    util.ERROR_NO_REVISION,
 				InternalError: err,
 			}
