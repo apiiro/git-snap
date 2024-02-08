@@ -510,7 +510,7 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIndexPath() {
 	})
 
 	gitSuite.Nil(err)
-	gitSuite.verifyIndexFile(40, indexFilePath)
+	gitSuite.verifyIndexFile(41, indexFilePath)
 }
 
 func (gitSuite *gitTestSuite) TestSnapshotWithPathsFile() {
