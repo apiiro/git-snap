@@ -1,7 +1,7 @@
 package git
 
 import (
-	"bufio"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"gitsnap/options"
@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/avast/retry-go"
@@ -121,12 +122,15 @@ func loadFilePathsList(opts *options.Options, provider *repositoryProvider) erro
 			return fmt.Errorf("failed to read paths file from location: '%v', error: '%v'", opts.PathsFileLocation, err)
 		}
 
+		reader := csv.NewReader(file)
 		defer file.Close()
-		scanner := bufio.NewScanner(file)
 
-		for scanner.Scan() {
-			line := scanner.Text()
-			provider.fileListToSnap[line] = true
+		lines, err := reader.ReadAll()
+		if err != nil {
+			return fmt.Errorf("failed to read paths file from location: '%v', error: '%v'", opts.PathsFileLocation, err)
+		}
+		for i := range lines {
+			provider.fileListToSnap[lines[i][0]] = true
 		}
 	}
 	return nil
@@ -297,12 +301,14 @@ func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
 	return inFileList || len(provider.fileListToSnap) == 0
 }
 
-func addEntryToIndexFile(indexFile *os.File, name string, entry *object.TreeEntry) error {
+func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeEntry) error {
 	if indexFile != nil {
-		_, err := indexFile.WriteString(fmt.Sprintf("%v\t%v\t%v\n", name, entry.Hash.String(), entry.Mode.IsFile()))
+		record := []string{name, entry.Hash.String(), strconv.FormatBool(entry.Mode.IsFile())}
+		err := indexFile.Write(record)
 		if err != nil {
 			return err
 		}
+		indexFile.Flush()
 	}
 	return nil
 }
@@ -321,16 +327,23 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 	treeWalker := object.NewTreeWalker(tree, true, nil)
 	defer treeWalker.Close()
 
-	var indexOutputFile *os.File = nil
+	var indexOutputFile *csv.Writer = nil
 	if optionalIndexFilePath != "" && !dryRun {
 		locIndexOutputFile, err := os.Create(optionalIndexFilePath)
 		if err != nil {
 			return 0, fmt.Errorf("failed to create index file '%v': %v", optionalIndexFilePath, err)
 		}
 
+		csvWriter := csv.NewWriter(locIndexOutputFile)
+		csvWriter.Comma = '\t'
+		err = csvWriter.Write([]string{"Path", "BlobId", "IsFile"})
+		if err != nil {
+			return 0, fmt.Errorf("failed to write file headers '%v': %v", optionalIndexFilePath, err)
+		}
+
 		defer locIndexOutputFile.Close()
 
-		indexOutputFile = locIndexOutputFile
+		indexOutputFile = csvWriter
 	}
 
 	for {
@@ -383,6 +396,11 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 		return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 	}
 	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
+
+	if indexOutputFile != nil {
+		indexOutputFile.Flush()
+	}
+
 	return count, nil
 }
 

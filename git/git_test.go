@@ -130,8 +130,21 @@ func (gitSuite *gitTestSuite) verifyIndexFile(
 
 	scanner := bufio.NewScanner(file)
 	fileCount := 0
+	i := 0
 	for scanner.Scan() {
-		fields := strings.Split(scanner.Text(), "\t")
+		i++
+		lineText := scanner.Text()
+		fields := strings.Split(lineText, "\t")
+
+		if i == 1 {
+			if len(fields) != 3 || fields[0] != "Path" || fields[1] != "BlobId" || fields[2] != "IsFile" {
+				gitSuite.Require().Fail("Index file header line is incorrect", lineText)
+				return
+			}
+
+			continue
+		}
+
 		fileStat, err := os.Stat(gitSuite.outputPath + "/" + fields[0])
 
 		if err == nil {
