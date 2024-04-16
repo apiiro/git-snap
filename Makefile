@@ -25,7 +25,7 @@ vet:
 	go vet
 
 lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run --deadline=65s
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run
 
 test:
 	$(GOTEST) -v ./...
