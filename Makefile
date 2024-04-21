@@ -16,7 +16,7 @@ endif
 	GO111MODULE=on CGO_ENABLED=0 GOARCH=amd64 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-osx .
 
 build-linux:
-	docker run --rm -v $(shell pwd):/app -w /app --platform=linux/amd64 golang:1.20-alpine3.18 /bin/sh -c "GO111MODULE=on CGO_ENABLED=0 GOARCH=amd64 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux ."
+	docker run --rm -v $(shell pwd):/app -w /app --platform=linux/amd64 golang:1.22-alpine /bin/sh -c "GO111MODULE=on CGO_ENABLED=0 GOARCH=amd64 $(GOCMD) build -o bin/$(BINARY_NAME)-$(shell $(GOCMD) run . --version | cut -d" " -f 3)-linux ."
 
 clean:
 	rm -rf ./bin
@@ -25,7 +25,7 @@ vet:
 	go vet
 
 lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run --deadline=65s
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run
 
 test:
 	$(GOTEST) -v ./...
