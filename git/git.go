@@ -7,7 +7,6 @@ import (
 	"gitsnap/options"
 	"gitsnap/util"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -272,7 +271,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 
 	contentsBytes := []byte(contents)
 
-	err = ioutil.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
+	err = os.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
 		if strings.Contains(err.Error(), "file name too long") {
 			return &util.ErrorWithCode{
@@ -287,7 +286,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 
 	if provider.opts.CreateHashMarkers {
 		targetHashFilePath := fmt.Sprintf("%v.hash", targetFilePath)
-		err = ioutil.WriteFile(targetHashFilePath, []byte(file.Hash.String()), TARGET_PERMISSIONS)
+		err = os.WriteFile(targetHashFilePath, []byte(file.Hash.String()), TARGET_PERMISSIONS)
 		if err != nil {
 			log.Printf("failed to write hash file of '%v' to '%v': %v", filePath, targetFilePath, err)
 		}

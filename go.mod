@@ -1,8 +1,8 @@
 module gitsnap
 
-go 1.21
+go 1.23.1
 
-toolchain go1.22.2
+toolchain go1.22.4
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
