@@ -6,7 +6,7 @@ Tool to create a git revision snapshot for an existing repository clone.
 
 ```
 NAME:
-   git-snap - 1.21 - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
+   git-snap - Create a git revision snapshot for an existing repository clone. Symbolic link files will be omitted.
 
 USAGE:
    git-snap --src value --rev value   --out value           [optional flags]

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gitsnap/options"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,7 +28,7 @@ func TestGitTestSuite(t *testing.T) {
 
 func cloneLocal(remote string, filter string) (clonePath string) {
 	var err error
-	clonePath, err = ioutil.TempDir("", "")
+	clonePath, err = os.MkdirTemp("", "")
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +55,7 @@ func (gitSuite *gitTestSuite) SetupTest() {
 	gitSuite.clonePath = cloneLocal(gitSuite.remote, "")
 	gitSuite.filteredClonePath = cloneLocal(gitSuite.remote, "--filter=blob:limit=1k")
 	var err error
-	gitSuite.outputPath, err = ioutil.TempDir("", "")
+	gitSuite.outputPath, err = os.MkdirTemp("", "")
 	if err != nil {
 		panic(err)
 	}
@@ -91,7 +90,7 @@ func (gitSuite *gitTestSuite) verifyOutputPathAux(
 			fileSize := info.Size()
 			gitSuite.True(fileSize >= 0, "file at %v has invalid size", path)
 			gitSuite.True(info.Mode().IsRegular())
-			content, err := ioutil.ReadFile(path)
+			content, err := os.ReadFile(path)
 			gitSuite.Nil(err, "failed to read file at %v", path)
 			fileSizeFromRead := int64(len(content))
 			gitSuite.EqualValues(fileSize, fileSizeFromRead, "read different file size for %v", path)
@@ -527,7 +526,7 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIndexPath() {
 }
 
 func (gitSuite *gitTestSuite) TestSnapshotWithPathsFile() {
-	filesDir, err := ioutil.TempDir("", "")
+	filesDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		panic(err)
 	}

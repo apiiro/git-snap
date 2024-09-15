@@ -5,7 +5,6 @@ package git
 import (
 	"fmt"
 	"gitsnap/options"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -32,7 +31,7 @@ func gitArchiveArgs(clonePath string, commitish string, outputFilePath string) [
 }
 
 func withTempDir(op func(string)) {
-	dirPath, err := ioutil.TempDir("", "")
+	dirPath, err := os.MkdirTemp("", "")
 	if err != nil {
 		panic(err)
 	}
