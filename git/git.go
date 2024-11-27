@@ -12,12 +12,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/avast/retry-go"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 
 	"github.com/go-git/go-git/v5/storage/filesystem/dotgit"
 	"github.com/gobwas/glob"
@@ -121,7 +125,8 @@ func loadFilePathsList(opts *options.Options, provider *repositoryProvider) erro
 			return fmt.Errorf("failed to read paths file from location: '%v', error: '%v'", opts.PathsFileLocation, err)
 		}
 
-		reader := csv.NewReader(file)
+		t := transform.NewReader(file, unicode.UTF8.NewDecoder())
+		reader := csv.NewReader(t)
 		defer file.Close()
 
 		lines, err := reader.ReadAll()
@@ -129,7 +134,9 @@ func loadFilePathsList(opts *options.Options, provider *repositoryProvider) erro
 			return fmt.Errorf("failed to read paths file from location: '%v', error: '%v'", opts.PathsFileLocation, err)
 		}
 		for i := range lines {
-			provider.fileListToSnap[lines[i][0]] = true
+			path := convertToUTF8(lines[i][0])
+
+			provider.fileListToSnap[path] = true
 		}
 	}
 	return nil
@@ -190,7 +197,7 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 }
 
 func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexOnly bool) (error, bool) {
-	filePath := name
+	filePath := convertToUTF8(name)
 	mode := entry.Mode
 
 	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
@@ -296,12 +303,15 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 }
 
 func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
-	_, inFileList := provider.fileListToSnap[filePathToCheck]
+	path := convertToUTF8(filePathToCheck)
+	_, inFileList := provider.fileListToSnap[path]
+
 	return inFileList || len(provider.fileListToSnap) == 0
 }
 
 func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeEntry) error {
 	if indexFile != nil {
+		name = convertToUTF8(name)
 		record := []string{name, entry.Hash.String(), strconv.FormatBool(entry.Mode.IsFile())}
 		err := indexFile.Write(record)
 		if err != nil {
@@ -310,6 +320,20 @@ func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeE
 		indexFile.Flush()
 	}
 	return nil
+}
+
+// If the string is in ISO-8859-1, convert it to utf-8
+func convertToUTF8(input string) string {
+	if utf8.ValidString(input) {
+		return input
+	}
+	// Create a transformer for ISO-8859-1
+	reader := transform.NewReader(strings.NewReader(input), charmap.ISO8859_1.NewDecoder())
+	utf8Bytes, err := io.ReadAll(reader)
+	if err != nil {
+		return input
+	}
+	return string(utf8Bytes)
 }
 
 func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, indexOnly bool, dryRun bool) (int, error) {
@@ -333,7 +357,8 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 			return 0, fmt.Errorf("failed to create index file '%v': %v", optionalIndexFilePath, err)
 		}
 
-		csvWriter := csv.NewWriter(locIndexOutputFile)
+		transformer := transform.NewWriter(locIndexOutputFile, unicode.UTF8.NewEncoder())
+		csvWriter := csv.NewWriter(transformer)
 		csvWriter.Comma = '\t'
 		err = csvWriter.Write([]string{"Path", "BlobId", "IsFile"})
 		if err != nil {
