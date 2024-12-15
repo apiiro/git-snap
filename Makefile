@@ -1,6 +1,5 @@
 GOCMD=go
 GOTEST=$(GOCMD) test
-GOVET=$(GOCMD) vet
 BINARY_NAME=gitsnap
 
 .PHONY: all test build vendor
@@ -20,9 +19,10 @@ build-linux:
 
 clean:
 	rm -rf ./bin
+	$(GOCMD) clean -cache
 
 vet:
-	go vet
+	$(GOCMD) vet
 
 lint:
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run
