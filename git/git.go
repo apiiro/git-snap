@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/avast/retry-go"
 	"github.com/go-git/go-git/v5"
@@ -129,7 +130,12 @@ func loadFilePathsList(opts *options.Options, provider *repositoryProvider) erro
 			return fmt.Errorf("failed to read paths file from location: '%v', error: '%v'", opts.PathsFileLocation, err)
 		}
 		for i := range lines {
-			provider.fileListToSnap[lines[i][0]] = true
+			path := lines[i][0]
+			if !utf8.ValidString(path) {
+				provider.verboseLog("skipping invalid UTF-8 path found in the file paths file: %s", lines[i][0])
+				continue
+			}
+			provider.fileListToSnap[path] = true
 		}
 	}
 	return nil
@@ -195,6 +201,11 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 
 	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
 		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
+		return nil, false
+	}
+
+	if !utf8.ValidString(filePath) {
+		provider.verboseLog("--- skipping '%v' - file path is not a valid UTF-8 string", filePath)
 		return nil, false
 	}
 
@@ -301,7 +312,7 @@ func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
 }
 
 func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeEntry) error {
-	if indexFile != nil {
+	if indexFile != nil && utf8.ValidString(name) {
 		record := []string{name, entry.Hash.String(), strconv.FormatBool(entry.Mode.IsFile())}
 		err := indexFile.Write(record)
 		if err != nil {
