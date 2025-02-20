@@ -76,7 +76,6 @@ var (
 		"tiff",
 		"tlz",
 		"ttf",
-		"war",
 		"wav",
 		"webp",
 		"whl",
