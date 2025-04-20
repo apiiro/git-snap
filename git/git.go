@@ -366,7 +366,6 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 			return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 		}
 
-		count++
 		if !dryRun {
 			if entry.Mode.IsFile() {
 				err, didSnap := provider.dumpFile(repository, name, &entry, outputPath, indexOnly)
@@ -381,6 +380,7 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 				if !didSnap {
 					continue
 				}
+				count++
 			}
 
 			err = addEntryToIndexFile(indexOutputFile, name, &entry)
