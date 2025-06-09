@@ -195,7 +195,7 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 	}
 }
 
-func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexOnly bool) (error, bool) {
+func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexOnly bool, dryRun bool) (error, bool) {
 	filePath := name
 	mode := entry.Mode
 
@@ -259,7 +259,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		return nil, false
 	}
 
-	if indexOnly {
+	if indexOnly || dryRun {
 		return nil, true
 	}
 
@@ -366,26 +366,26 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 			return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 		}
 
-		count++
-		if !dryRun {
-			if entry.Mode.IsFile() {
-				err, didSnap := provider.dumpFile(repository, name, &entry, outputPath, indexOnly)
-				if err != nil {
-					if errors.Is(err, plumbing.ErrObjectNotFound) {
-						log.Printf("Can't get blob %s: %s", name, err)
-					} else {
-						break
-					}
-				}
-
-				if !didSnap {
-					continue
+		if entry.Mode.IsFile() {
+			err, didSnap := provider.dumpFile(repository, name, &entry, outputPath, indexOnly, dryRun)
+			if err != nil {
+				if errors.Is(err, plumbing.ErrObjectNotFound) {
+					log.Printf("Can't get blob %s: %s", name, err)
+				} else {
+					break
 				}
 			}
 
-			err = addEntryToIndexFile(indexOutputFile, name, &entry)
-			if err != nil {
-				break
+			if !didSnap {
+				continue
+			}
+			count++
+
+			if !dryRun {
+				err = addEntryToIndexFile(indexOutputFile, name, &entry)
+				if err != nil {
+					break
+				}
 			}
 		}
 	}

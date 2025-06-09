@@ -1,3 +1,4 @@
+//go:build bench
 // +build bench
 
 package git
@@ -78,7 +79,7 @@ func gitWorktreeCheckout(clonePath string, commitish string) {
 }
 
 func benchmark(remote string) {
-	clonePath := cloneLocal(remote)
+	clonePath := cloneLocal(remote, "")
 
 	archiveSec := timed(func() {
 		gitArchive(clonePath, "master")
@@ -99,7 +100,6 @@ func benchmark(remote string) {
 				OutputPath:      outputPath,
 				IncludePatterns: []string{},
 				ExcludePatterns: []string{},
-				SupportShortSha: false,
 			})
 			if err != nil {
 				panic(err)
@@ -117,7 +117,6 @@ func benchmark(remote string) {
 				IncludePatterns:    []string{"*.java"},
 				ExcludePatterns:    []string{},
 				VerboseLogging:     false,
-				SupportShortSha:    true,
 				TextFilesOnly:      false,
 				CreateHashMarkers:  false,
 				IgnoreCasePatterns: false,
