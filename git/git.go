@@ -123,7 +123,11 @@ func loadFilePathsList(opts *options.Options, provider *repositoryProvider) erro
 		}
 
 		reader := csv.NewReader(file)
-		defer file.Close()
+		defer func() {
+			if closeErr := file.Close(); closeErr != nil {
+				provider.verboseLog("warning: failed to close paths file: %v", closeErr)
+			}
+		}()
 
 		lines, err := reader.ReadAll()
 		if err != nil {
@@ -351,7 +355,11 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 			return 0, fmt.Errorf("failed to write file headers '%v': %v", optionalIndexFilePath, err)
 		}
 
-		defer locIndexOutputFile.Close()
+		defer func() {
+			if closeErr := locIndexOutputFile.Close(); closeErr != nil {
+				log.Printf("warning: failed to close index output file: %v", closeErr)
+			}
+		}()
 
 		indexOutputFile = csvWriter
 	}

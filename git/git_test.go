@@ -125,7 +125,11 @@ func (gitSuite *gitTestSuite) verifyIndexFile(
 ) {
 	file, err := os.Open(indexFile)
 	gitSuite.Require().Nil(err)
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			gitSuite.T().Logf("warning: failed to close index file: %v", closeErr)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	fileCount := 0
@@ -550,7 +554,9 @@ func (gitSuite *gitTestSuite) TestSnapshotWithPathsFile() {
 		return
 	}
 
-	file.Close()
+	if closeErr := file.Close(); closeErr != nil {
+		gitSuite.T().Logf("warning: failed to close paths file: %v", closeErr)
+	}
 
 	err = Snapshot(&options.Options{
 		ClonePath:         gitSuite.clonePath,
