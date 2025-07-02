@@ -385,7 +385,7 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 			err = addEntryToIndexFile(indexOutputFile, name, &entry)
 			if err != nil {
-				break
+				return 0, fmt.Errorf("failed to write to index file for '%v': %v", name, err)
 			}
 		}
 	}
