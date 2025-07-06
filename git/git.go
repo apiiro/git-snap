@@ -123,7 +123,11 @@ func loadFilePathsList(opts *options.Options, provider *repositoryProvider) erro
 		}
 
 		reader := csv.NewReader(file)
-		defer file.Close()
+		defer func() {
+			if closeErr := file.Close(); closeErr != nil {
+				log.Printf("warning: failed to close paths file: %v", closeErr)
+			}
+		}()
 
 		lines, err := reader.ReadAll()
 		if err != nil {
@@ -351,7 +355,11 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 			return 0, fmt.Errorf("failed to write file headers '%v': %v", optionalIndexFilePath, err)
 		}
 
-		defer locIndexOutputFile.Close()
+		defer func() {
+			if closeErr := locIndexOutputFile.Close(); closeErr != nil {
+				log.Printf("warning: failed to close index output file: %v", closeErr)
+			}
+		}()
 
 		indexOutputFile = csvWriter
 	}
@@ -372,9 +380,14 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 				err, didSnap := provider.dumpFile(repository, name, &entry, outputPath, indexOnly)
 				if err != nil {
 					if errors.Is(err, plumbing.ErrObjectNotFound) {
-						log.Printf("Can't get blob %s: %s", name, err)
+						log.Printf("Can't get blob %s: %s (ignoring - possible partial clone)", name, err)
+					} else if errors.Is(err, dotgit.ErrPackfileNotFound) {
+						return 0, &util.ErrorWithCode{
+							StatusCode:    util.ERROR_BAD_CLONE_GIT,
+							InternalError: err,
+						}
 					} else {
-						break
+						return 0, fmt.Errorf("failed to dump file %s: %v", name, err)
 					}
 				}
 
@@ -385,33 +398,10 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 			err = addEntryToIndexFile(indexOutputFile, name, &entry)
 			if err != nil {
-				break
+				return 0, fmt.Errorf("failed to write to index file for '%v': %v", name, err)
 			}
 		}
 	}
-
-	if err != nil {
-		if errors.Is(err, dotgit.ErrPackfileNotFound) {
-			return 0, &util.ErrorWithCode{
-				StatusCode:    util.ERROR_BAD_CLONE_GIT,
-				InternalError: err,
-			}
-		}
-		if errors.Is(err, plumbing.ErrObjectNotFound) {
-			return 0, &util.ErrorWithCode{
-				StatusCode:    util.ERROR_NO_REVISION,
-				InternalError: err,
-			}
-		}
-		return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
-	}
-	provider.verboseLog("iterated %v files for %v", count, commit.Hash)
-
-	if indexOutputFile != nil {
-		indexOutputFile.Flush()
-	}
-
-	return count, nil
 }
 
 func (provider *repositoryProvider) isSymlink(filePath string, mode filemode.FileMode) bool {
