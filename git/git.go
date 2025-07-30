@@ -83,6 +83,7 @@ func Snapshot(opts *options.Options) (err error) {
 			return err
 		}
 	} else {
+		// First attempt
 		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
 		if err != nil {
 			return err
@@ -93,20 +94,23 @@ func Snapshot(opts *options.Options) (err error) {
 			return err
 		}
 		if filesCount != filesCountDryRun {
-			return &util.ErrorWithCode{
-				StatusCode:    util.ERROR_FILES_DISCREPANCY,
-				InternalError: fmt.Errorf("dryRun files count is %v , but snapshot files count is %v", filesCountDryRun, filesCount),
+			log.Printf("discrepancy detected on attempt 1: dryRun files count is %v, but snapshot files count is %v", filesCountDryRun, filesCount)
+			
+			// Second attempt - re-run the whole snapshot process
+			filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
+			if err != nil {
+				return err
 			}
-		}
 
-		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
-		if err != nil {
-			return err
-		}
-		if filesCount != filesCountDryRun {
-			return &util.ErrorWithCode{
-				StatusCode:    util.ERROR_FILES_DISCREPANCY,
-				InternalError: fmt.Errorf("dryRun files count is %v , but snapshot files count is %v", filesCountDryRun, filesCount),
+			filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
+			if err != nil {
+				return err
+			}
+			if filesCount != filesCountDryRun {
+				return &util.ErrorWithCode{
+					StatusCode:    util.ERROR_FILES_DISCREPANCY,
+					InternalError: fmt.Errorf("discrepancy persists on attempt 2: dryRun files count is %v, but snapshot files count is %v", filesCountDryRun, filesCount),
+				}
 			}
 		}
 	}
