@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/avast/retry-go"
@@ -25,7 +26,9 @@ import (
 )
 
 const (
-	TARGET_PERMISSIONS = 0777
+	TARGET_PERMISSIONS   = 0777
+	DISCREPANCY_ATTEMPTS = 3
+	DISCREPANCY_DELAY    = 3 * time.Second
 )
 
 type repositoryProvider struct {
@@ -37,7 +40,6 @@ type repositoryProvider struct {
 }
 
 func Snapshot(opts *options.Options) (err error) {
-	const maxRetryAttempts = 3 // Make this easily configurable
 
 	provider := &repositoryProvider{
 		opts:           opts,
@@ -94,9 +96,12 @@ func Snapshot(opts *options.Options) (err error) {
 		}
 	} else {
 		// Retry logic for discrepancy detection
-		for attempt := 1; attempt <= maxRetryAttempts; attempt++ {
+		for attempt := 1; attempt <= DISCREPANCY_ATTEMPTS; attempt++ {
 			// Re-get commit for each attempt after the first
 			if attempt > 1 {
+				log.Printf("waiting %v before retry attempt %d", DISCREPANCY_DELAY, attempt)
+				time.Sleep(DISCREPANCY_DELAY)
+
 				log.Printf("re-acquiring commit for retry attempt %d", attempt)
 				commit, err = getCommitWithValidation()
 				if err != nil {
@@ -125,10 +130,10 @@ func Snapshot(opts *options.Options) (err error) {
 			log.Printf("discrepancy detected on attempt %d: dryRun files count is %v, but snapshot files count is %v", attempt, filesCountDryRun, filesCount)
 
 			// If this was the last attempt, return error
-			if attempt == maxRetryAttempts {
+			if attempt == DISCREPANCY_ATTEMPTS {
 				return &util.ErrorWithCode{
 					StatusCode:    util.ERROR_FILES_DISCREPANCY,
-					InternalError: fmt.Errorf("discrepancy persists after %d attempts: dryRun files count is %v, but snapshot files count is %v", maxRetryAttempts, filesCountDryRun, filesCount),
+					InternalError: fmt.Errorf("discrepancy persists after %d attempts: dryRun files count is %v, but snapshot files count is %v", DISCREPANCY_ATTEMPTS, filesCountDryRun, filesCount),
 				}
 			}
 		}
