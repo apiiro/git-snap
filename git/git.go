@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/avast/retry-go"
@@ -25,7 +26,9 @@ import (
 )
 
 const (
-	TARGET_PERMISSIONS = 0777
+	TARGET_PERMISSIONS   = 0777
+	DISCREPANCY_ATTEMPTS = 3
+	DISCREPANCY_DELAY    = 3 * time.Second
 )
 
 type repositoryProvider struct {
@@ -65,48 +68,73 @@ func Snapshot(opts *options.Options) (err error) {
 		}
 	}
 
-	_, _ = provider.getCommit("HEAD")
+	// Helper function to get commit with validation
+	getCommitWithValidation := func() (*object.Commit, error) {
+		_, _ = provider.getCommit("HEAD")
+
+		var commit *object.Commit
+		commit, err = provider.getCommit(opts.Revision)
+		if err != nil || commit == nil {
+			return nil, err
+		}
+		return commit, nil
+	}
 
 	var commit *object.Commit
-	commit, err = provider.getCommit(opts.Revision)
-	if err != nil || commit == nil {
+	commit, err = getCommitWithValidation()
+	if err != nil {
 		return err
 	}
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 
 	var filesCount int
-	var filesCountDryRun int
 	if opts.SkipDoubleCheck {
 		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 		if err != nil {
 			return err
 		}
 	} else {
-		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
-		if err != nil {
-			return err
-		}
+		// Retry logic for discrepancy detection
+		for attempt := 1; attempt <= DISCREPANCY_ATTEMPTS; attempt++ {
+			// Re-get commit for each attempt after the first
+			if attempt > 1 {
+				log.Printf("waiting %v before retry attempt %d", DISCREPANCY_DELAY, attempt)
+				time.Sleep(DISCREPANCY_DELAY)
 
-		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
-		if err != nil {
-			return err
-		}
-		if filesCount != filesCountDryRun {
-			return &util.ErrorWithCode{
-				StatusCode:    util.ERROR_FILES_DISCREPANCY,
-				InternalError: fmt.Errorf("dryRun files count is %v , but snapshot files count is %v", filesCountDryRun, filesCount),
+				log.Printf("re-acquiring commit for retry attempt %d", attempt)
+				commit, err = getCommitWithValidation()
+				if err != nil {
+					return err
+				}
 			}
-		}
 
-		filesCountDryRun, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
-		if err != nil {
-			return err
-		}
-		if filesCount != filesCountDryRun {
-			return &util.ErrorWithCode{
-				StatusCode:    util.ERROR_FILES_DISCREPANCY,
-				InternalError: fmt.Errorf("dryRun files count is %v , but snapshot files count is %v", filesCountDryRun, filesCount),
+			// Dry run
+			filesCountDryRun, err := provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
+			if err != nil {
+				return err
+			}
+
+			// Actual run
+			filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
+			if err != nil {
+				return err
+			}
+
+			// Check for discrepancy
+			if filesCount == filesCountDryRun {
+				// Success - no discrepancy
+				break
+			}
+
+			log.Printf("discrepancy detected on attempt %d: dryRun files count is %v, but snapshot files count is %v", attempt, filesCountDryRun, filesCount)
+
+			// If this was the last attempt, return error
+			if attempt == DISCREPANCY_ATTEMPTS {
+				return &util.ErrorWithCode{
+					StatusCode:    util.ERROR_FILES_DISCREPANCY,
+					InternalError: fmt.Errorf("discrepancy persists after %d attempts: dryRun files count is %v, but snapshot files count is %v", DISCREPANCY_ATTEMPTS, filesCountDryRun, filesCount),
+				}
 			}
 		}
 	}
