@@ -88,9 +88,9 @@ func Snapshot(opts *options.Options) (err error) {
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 
-	var filesCount int
+	var totalCount, filteredCount int
 	if opts.SkipDoubleCheck {
-		filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
+		totalCount, filteredCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 		if err != nil {
 			return err
 		}
@@ -109,37 +109,37 @@ func Snapshot(opts *options.Options) (err error) {
 				}
 			}
 
-			// Dry run
-			filesCountDryRun, err := provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
+			// Dry run - only counts total entries, skips filtering
+			totalCountDryRun, _, err := provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, true)
 			if err != nil {
 				return err
 			}
 
-			// Actual run
-			filesCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
+			// Actual run - counts both total and filtered
+			totalCount, filteredCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 			if err != nil {
 				return err
 			}
 
-			// Check for discrepancy
-			if filesCount == filesCountDryRun {
+			// Check for discrepancy using total counts (not filtered)
+			if totalCount == totalCountDryRun {
 				// Success - no discrepancy
 				break
 			}
 
-			log.Printf("discrepancy detected on attempt %d: dryRun files count is %v, but snapshot files count is %v", attempt, filesCountDryRun, filesCount)
+			log.Printf("discrepancy detected on attempt %d: dryRun total count is %v, but snapshot total count is %v", attempt, totalCountDryRun, totalCount)
 
 			// If this was the last attempt, return error
 			if attempt == DISCREPANCY_ATTEMPTS {
 				return &util.ErrorWithCode{
 					StatusCode:    util.ERROR_FILES_DISCREPANCY,
-					InternalError: fmt.Errorf("discrepancy persists after %d attempts: dryRun files count is %v, but snapshot files count is %v", DISCREPANCY_ATTEMPTS, filesCountDryRun, filesCount),
+					InternalError: fmt.Errorf("discrepancy persists after %d attempts: dryRun total count is %v, but snapshot total count is %v", DISCREPANCY_ATTEMPTS, totalCountDryRun, totalCount),
 				}
 			}
 		}
 	}
 
-	log.Printf("written %v files to target path '%v'", filesCount, opts.OutputPath)
+	log.Printf("written %v files (out of %v total) to target path '%v'", filteredCount, totalCount, opts.OutputPath)
 	return nil
 }
 
@@ -227,18 +227,20 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 	}
 }
 
-func (provider *repositoryProvider) dumpFile(repository *git.Repository, name string, entry *object.TreeEntry, outputPath string, indexOnly bool) (error, bool) {
+// shouldWriteFile checks if a file should be included in the snapshot based on filters.
+// Returns (shouldWrite, file, error) - file is non-nil only when shouldWrite is true.
+func (provider *repositoryProvider) shouldWriteFile(repository *git.Repository, name string, entry *object.TreeEntry) (bool, *object.File, error) {
 	filePath := name
 	mode := entry.Mode
 
 	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
 		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
-		return nil, false
+		return false, nil, nil
 	}
 
 	if !utf8.ValidString(filePath) {
 		provider.verboseLog("--- skipping '%v' - file path is not a valid UTF-8 string", filePath)
-		return nil, false
+		return false, nil, nil
 	}
 
 	filePathToCheck := filePath
@@ -248,56 +250,58 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 
 	if !isFileInList(provider, filePathToCheck) {
 		provider.verboseLog("--- skipping '%v' - not matching file list", filePath)
-		return nil, false
+		return false, nil, nil
 	}
 
 	skip := true
 	hasIncludePatterns := len(provider.includePatterns) > 0
 	if hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns) {
 		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
-		return nil, false
+		return false, nil, nil
 	} else if hasIncludePatterns {
 		skip = false
 	}
 
 	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) && skip {
 		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
-		return nil, false
+		return false, nil, nil
 	}
 
 	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePathToCheck)) {
 		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
-		return nil, false
+		return false, nil, nil
 	}
 
 	blob, err := object.GetBlob(repository.Storer, entry.Hash)
 	if err != nil {
-		return err, false
+		return false, nil, err
 	}
 
 	file := object.NewFile(name, entry.Mode, blob)
 
 	if provider.opts.MaxFileSizeBytes > 0 && file.Size >= provider.opts.MaxFileSizeBytes {
 		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", filePath, file.Size)
-		return nil, false
+		return false, nil, nil
 	}
 
 	fileName := filepath.Base(filePath)
-	targetFilePath := filepath.Join(outputPath, filePath)
-	targetDirectoryPath := filepath.Dir(targetFilePath)
 
 	if len(fileName) > 255 || len(filePath) > 4095 {
 		log.Printf("--- skipping '%v' - file name is too long to snapshot", filePath)
-		return nil, false
+		return false, nil, nil
 	}
 
-	if indexOnly {
-		return nil, true
-	}
+	return true, file, nil
+}
 
-	err = os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
+// writeFile writes the file contents to the target path. Called only after shouldWriteFile returns true.
+func (provider *repositoryProvider) writeFile(file *object.File, filePath string, outputPath string) error {
+	targetFilePath := filepath.Join(outputPath, filePath)
+	targetDirectoryPath := filepath.Dir(targetFilePath)
+
+	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
-		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err), false
+		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
 	}
 
 	var contents string
@@ -309,7 +313,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err), false
+		return fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err)
 	}
 
 	contentsBytes := []byte(contents)
@@ -320,9 +324,9 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 			return &util.ErrorWithCode{
 				StatusCode:    util.ERROR_PATH_TOO_LONG,
 				InternalError: err,
-			}, false
+			}
 		}
-		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err), false
+		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
 	}
 
 	provider.verboseLog("+++ '%v' to '%v'", filePath, targetFilePath)
@@ -335,7 +339,7 @@ func (provider *repositoryProvider) dumpFile(repository *git.Repository, name st
 		}
 	}
 
-	return nil, true
+	return nil
 }
 
 func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
@@ -355,16 +359,20 @@ func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeE
 	return nil
 }
 
-func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, indexOnly bool, dryRun bool) (int, error) {
+// snapshot returns (totalCount, filteredCount, error)
+// totalCount: all file entries in the tree (used for discrepancy detection)
+// filteredCount: files that pass all filters and were actually snapped (used for logging)
+func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, indexOnly bool, dryRun bool) (int, int, error) {
 
 	tree, err := commit.Tree()
 	if err != nil {
-		return 0, &util.ErrorWithCode{
+		return 0, 0, &util.ErrorWithCode{
 			StatusCode:    util.ERROR_TREE_NOT_FOUND,
 			InternalError: fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err),
 		}
 	}
-	count := 0
+	totalCount := 0
+	filteredCount := 0
 
 	treeWalker := object.NewTreeWalker(tree, true, nil)
 	defer treeWalker.Close()
@@ -373,14 +381,14 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 	if optionalIndexFilePath != "" && !dryRun {
 		locIndexOutputFile, err := os.Create(optionalIndexFilePath)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create index file '%v': %v", optionalIndexFilePath, err)
+			return 0, 0, fmt.Errorf("failed to create index file '%v': %v", optionalIndexFilePath, err)
 		}
 
 		csvWriter := csv.NewWriter(locIndexOutputFile)
 		csvWriter.Comma = '\t'
 		err = csvWriter.Write([]string{"Path", "BlobId", "IsFile"})
 		if err != nil {
-			return 0, fmt.Errorf("failed to write file headers '%v': %v", optionalIndexFilePath, err)
+			return 0, 0, fmt.Errorf("failed to write file headers '%v': %v", optionalIndexFilePath, err)
 		}
 
 		defer func() {
@@ -395,39 +403,58 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 	for {
 		name, entry, walkErr := treeWalker.Next()
 		if walkErr == io.EOF {
-			return count, nil
+			return totalCount, filteredCount, nil
 		}
 
 		if walkErr != nil {
-			return 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
+			return 0, 0, fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, err)
 		}
 
-		count++
-		if !dryRun {
-			if entry.Mode.IsFile() {
-				err, didSnap := provider.dumpFile(repository, name, &entry, outputPath, indexOnly)
-				if err != nil {
-					if errors.Is(err, plumbing.ErrObjectNotFound) {
-						log.Printf("Can't get blob %s: %s (ignoring - possible partial clone)", name, err)
-					} else if errors.Is(err, dotgit.ErrPackfileNotFound) {
-						return 0, &util.ErrorWithCode{
-							StatusCode:    util.ERROR_BAD_CLONE_GIT,
-							InternalError: err,
-						}
-					} else {
-						return 0, fmt.Errorf("failed to dump file %s: %v", name, err)
-					}
-				}
+		// Count all entries (files + directories) for discrepancy detection
+		totalCount++
 
-				if !didSnap {
-					continue
-				}
-			}
+		// For dry run, only count - skip all processing
+		if dryRun {
+			continue
+		}
 
-			err = addEntryToIndexFile(indexOutputFile, name, &entry)
+		// Process files: apply filters and write
+		if entry.Mode.IsFile() {
+			shouldWrite, file, err := provider.shouldWriteFile(repository, name, &entry)
 			if err != nil {
-				return 0, fmt.Errorf("failed to write to index file for '%v': %v", name, err)
+				if errors.Is(err, plumbing.ErrObjectNotFound) {
+					log.Printf("Can't get blob %s: %s (ignoring - possible partial clone)", name, err)
+					continue
+				} else if errors.Is(err, dotgit.ErrPackfileNotFound) {
+					return 0, 0, &util.ErrorWithCode{
+						StatusCode:    util.ERROR_BAD_CLONE_GIT,
+						InternalError: err,
+					}
+				} else {
+					return 0, 0, fmt.Errorf("failed to check file %s: %v", name, err)
+				}
 			}
+
+			if !shouldWrite {
+				continue
+			}
+
+			// Count files that pass all filters
+			filteredCount++
+
+			// Write files if not indexOnly
+			if !indexOnly {
+				err = provider.writeFile(file, name, outputPath)
+				if err != nil {
+					return 0, 0, fmt.Errorf("failed to write file %s: %v", name, err)
+				}
+			}
+		}
+
+		// Add to index file (includes both files and directories)
+		err = addEntryToIndexFile(indexOutputFile, name, &entry)
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to write to index file for '%v': %v", name, err)
 		}
 	}
 }
