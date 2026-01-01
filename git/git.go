@@ -243,6 +243,11 @@ func (provider *repositoryProvider) shouldWriteFile(repository *git.Repository, 
 		return false, nil, nil
 	}
 
+	if strings.ContainsAny(filePath, "\n\r") {
+		provider.verboseLog("--- skipping '%v' - file path contains newline character", filePath)
+		return false, nil, nil
+	}
+
 	filePathToCheck := filePath
 	if provider.opts.IgnoreCasePatterns {
 		filePathToCheck = strings.ToLower(filePathToCheck)
