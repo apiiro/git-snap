@@ -301,6 +301,10 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 
 	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
+		if strings.Contains(err.Error(), "file name too long") {
+			log.Printf("--- [MkdirAll] skipping '%v' - path too long for filesystem", targetDirectoryPath)
+			return nil // Skip gracefully
+		}
 		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
 	}
 
@@ -321,10 +325,8 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 	err = os.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
 		if strings.Contains(err.Error(), "file name too long") {
-			return &util.ErrorWithCode{
-				StatusCode:    util.ERROR_PATH_TOO_LONG,
-				InternalError: err,
-			}
+			log.Printf("--- [WriteFile] skipping '%v' - path too long for filesystem", targetFilePath)
+			return nil // Skip gracefully
 		}
 		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
 	}
