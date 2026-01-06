@@ -529,6 +529,36 @@ func (gitSuite *gitTestSuite) TestSnapshotWithIndexPath() {
 	gitSuite.verifyIndexFile(40, indexFilePath)
 }
 
+func (gitSuite *gitTestSuite) TestIndexFileDoesNotContainNewlines() {
+	indexFilePath := gitSuite.outputPath + "/" + "__index_newline_test.csv"
+
+	err := Snapshot(&options.Options{
+		ClonePath:             gitSuite.clonePath,
+		Revision:              "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
+		OutputPath:            gitSuite.outputPath,
+		OptionalIndexFilePath: indexFilePath,
+	})
+
+	gitSuite.Nil(err)
+
+	file, err := os.Open(indexFilePath)
+	gitSuite.Require().Nil(err)
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineNumber := 0
+	for scanner.Scan() {
+		lineNumber++
+		fields := strings.Split(scanner.Text(), "\t")
+		gitSuite.Require().Equal(3, len(fields), "Line %d should have exactly 3 fields", lineNumber)
+		if lineNumber > 1 {
+			gitSuite.Require().False(strings.ContainsAny(fields[0], "\n\r"), "Path contains newline on line %d", lineNumber)
+		}
+	}
+
+	gitSuite.Require().Nil(scanner.Err())
+}
+
 func (gitSuite *gitTestSuite) TestSnapshotWithPathsFile() {
 	filesDir, err := os.MkdirTemp("", "")
 	if err != nil {
@@ -569,28 +599,4 @@ func (gitSuite *gitTestSuite) TestSnapshotWithPathsFile() {
 
 	gitSuite.Nil(err)
 	gitSuite.verifyOutputPath(7, 1, 1696, 1696)
-}
-
-func (gitSuite *gitTestSuite) TestFilePathWithNewlineIsRejected() {
-	testCases := []struct {
-		name          string
-		filePath      string
-		shouldBeValid bool
-	}{
-		{"normal file", "normal/path/file.txt", true},
-		{"file with newline", "path/file\nwith\nnewline.txt", false},
-		{"file with carriage return", "path/file\rwith\rCR.txt", false},
-		{"file with both", "path/file\r\nmixed.txt", false},
-	}
-
-	for _, tc := range testCases {
-		gitSuite.Run(tc.name, func() {
-			hasNewline := strings.ContainsAny(tc.filePath, "\n\r")
-			if tc.shouldBeValid {
-				gitSuite.False(hasNewline, "Valid file path should not contain newlines")
-			} else {
-				gitSuite.True(hasNewline, "Invalid file path should contain newlines")
-			}
-		})
-	}
 }
