@@ -304,7 +304,11 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
 		if errors.Is(err, syscall.ENAMETOOLONG) {
-			log.Printf("--- [MkdirAll] skipping '%v' - path too long for filesystem", targetDirectoryPath)
+			log.Printf("--- skipping '%v' - path component too long for filesystem (ENAMETOOLONG)", targetDirectoryPath)
+			return false, nil // Skipped, not written
+		}
+		if errors.Is(err, syscall.EINVAL) {
+			log.Printf("--- skipping '%v' - path contains invalid characters (EINVAL)", targetDirectoryPath)
 			return false, nil // Skipped, not written
 		}
 		return false, fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
@@ -327,7 +331,11 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 	err = os.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
 		if errors.Is(err, syscall.ENAMETOOLONG) {
-			log.Printf("--- [WriteFile] skipping '%v' - path too long for filesystem", targetFilePath)
+			log.Printf("--- skipping '%v' - path component too long for filesystem (ENAMETOOLONG)", targetFilePath)
+			return false, nil // Skipped, not written
+		}
+		if errors.Is(err, syscall.EINVAL) {
+			log.Printf("--- skipping '%v' - path contains invalid characters (EINVAL)", targetFilePath)
 			return false, nil // Skipped, not written
 		}
 		return false, fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
