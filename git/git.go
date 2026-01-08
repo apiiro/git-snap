@@ -360,7 +360,7 @@ func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
 }
 
 func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeEntry) error {
-	if indexFile != nil && utf8.ValidString(name) {
+	if indexFile != nil && utf8.ValidString(name) && !strings.ContainsAny(name, "\n\r") {
 		record := []string{name, entry.Hash.String(), strconv.FormatBool(entry.Mode.IsFile())}
 		err := indexFile.Write(record)
 		if err != nil {
