@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -88,9 +89,9 @@ func Snapshot(opts *options.Options) (err error) {
 
 	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 
-	var totalCount, filteredCount int
+	var totalCount, writtenCount int
 	if opts.SkipDoubleCheck {
-		totalCount, filteredCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
+		totalCount, writtenCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 		if err != nil {
 			return err
 		}
@@ -116,7 +117,7 @@ func Snapshot(opts *options.Options) (err error) {
 			}
 
 			// Actual run - counts both total and filtered
-			totalCount, filteredCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
+			totalCount, writtenCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 			if err != nil {
 				return err
 			}
@@ -139,7 +140,7 @@ func Snapshot(opts *options.Options) (err error) {
 		}
 	}
 
-	log.Printf("written %v files (out of %v total) to target path '%v'", filteredCount, totalCount, opts.OutputPath)
+	log.Printf("written %v files (out of %v total) to target path '%v'", writtenCount, totalCount, opts.OutputPath)
 	return nil
 }
 
@@ -295,13 +296,22 @@ func (provider *repositoryProvider) shouldWriteFile(repository *git.Repository, 
 }
 
 // writeFile writes the file contents to the target path. Called only after shouldWriteFile returns true.
-func (provider *repositoryProvider) writeFile(file *object.File, filePath string, outputPath string) error {
+// Returns (written, error) - written is true only if the file was actually written to disk.
+func (provider *repositoryProvider) writeFile(file *object.File, filePath string, outputPath string) (bool, error) {
 	targetFilePath := filepath.Join(outputPath, filePath)
 	targetDirectoryPath := filepath.Dir(targetFilePath)
 
 	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
 	if err != nil {
-		return fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
+		if errors.Is(err, syscall.ENAMETOOLONG) {
+			log.Printf("--- skipping '%v' - path component too long for filesystem (ENAMETOOLONG)", targetDirectoryPath)
+			return false, nil // Skipped, not written
+		}
+		if errors.Is(err, syscall.EINVAL) {
+			log.Printf("--- skipping '%v' - path contains invalid characters (EINVAL)", targetDirectoryPath)
+			return false, nil // Skipped, not written
+		}
+		return false, fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
 	}
 
 	var contents string
@@ -313,20 +323,22 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err)
+		return false, fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err)
 	}
 
 	contentsBytes := []byte(contents)
 
 	err = os.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
 	if err != nil {
-		if strings.Contains(err.Error(), "file name too long") {
-			return &util.ErrorWithCode{
-				StatusCode:    util.ERROR_PATH_TOO_LONG,
-				InternalError: err,
-			}
+		if errors.Is(err, syscall.ENAMETOOLONG) {
+			log.Printf("--- skipping '%v' - path component too long for filesystem (ENAMETOOLONG)", targetFilePath)
+			return false, nil // Skipped, not written
 		}
-		return fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
+		if errors.Is(err, syscall.EINVAL) {
+			log.Printf("--- skipping '%v' - path contains invalid characters (EINVAL)", targetFilePath)
+			return false, nil // Skipped, not written
+		}
+		return false, fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
 	}
 
 	provider.verboseLog("+++ '%v' to '%v'", filePath, targetFilePath)
@@ -339,7 +351,7 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 		}
 	}
 
-	return nil
+	return true, nil // Successfully written
 }
 
 func isFileInList(provider *repositoryProvider, filePathToCheck string) bool {
@@ -359,9 +371,9 @@ func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeE
 	return nil
 }
 
-// snapshot returns (totalCount, filteredCount, error)
+// snapshot returns (totalCount, writtenCount, error)
 // totalCount: all file entries in the tree (used for discrepancy detection)
-// filteredCount: files that pass all filters and were actually snapped (used for logging)
+// writtenCount: files that were actually written to disk (used for logging)
 func (provider *repositoryProvider) snapshot(repository *git.Repository, commit *object.Commit, outputPath string, optionalIndexFilePath string, indexOnly bool, dryRun bool) (int, int, error) {
 
 	tree, err := commit.Tree()
@@ -372,7 +384,7 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 		}
 	}
 	totalCount := 0
-	filteredCount := 0
+	writtenCount := 0
 
 	treeWalker := object.NewTreeWalker(tree, true, nil)
 	defer treeWalker.Close()
@@ -403,7 +415,7 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 	for {
 		name, entry, walkErr := treeWalker.Next()
 		if walkErr == io.EOF {
-			return totalCount, filteredCount, nil
+			return totalCount, writtenCount, nil
 		}
 
 		if walkErr != nil {
@@ -439,14 +451,14 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 				continue
 			}
 
-			// Count files that pass all filters
-			filteredCount++
-
 			// Write files if not indexOnly
 			if !indexOnly {
-				err = provider.writeFile(file, name, outputPath)
+				written, err := provider.writeFile(file, name, outputPath)
 				if err != nil {
 					return 0, 0, fmt.Errorf("failed to write file %s: %v", name, err)
+				}
+				if written {
+					writtenCount++
 				}
 			}
 		}
