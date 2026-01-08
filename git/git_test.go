@@ -543,7 +543,6 @@ func (gitSuite *gitTestSuite) TestIndexFileDoesNotContainNewlines() {
 
 	file, err := os.Open(indexFilePath)
 	gitSuite.Require().Nil(err)
-	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	lineNumber := 0
@@ -555,7 +554,9 @@ func (gitSuite *gitTestSuite) TestIndexFileDoesNotContainNewlines() {
 			gitSuite.Require().False(strings.ContainsAny(fields[0], "\n\r"), "Path contains newline on line %d", lineNumber)
 		}
 	}
-
+	if closeErr := file.Close(); closeErr != nil {
+		gitSuite.T().Logf("warning: failed to close paths file: %v", closeErr)
+	}
 	gitSuite.Require().Nil(scanner.Err())
 }
 
