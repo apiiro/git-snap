@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const VERSION = "1.35"
+const VERSION = "1.36"
 
 func main() {
 	cli.AppHelpTemplate =
@@ -49,9 +49,13 @@ EXIT CODES:
 			if err != nil {
 				return err
 			}
-			err = git.Snapshot(opts)
-			if err == nil {
-				log.Printf("Completed successfully at %v", opts.OutputPath)
+			if opts.Stats {
+				err = git.Stats(opts)
+			} else {
+				err = git.Snapshot(opts)
+				if err == nil {
+					log.Printf("Completed successfully at %v", opts.OutputPath)
+				}
 			}
 			return err
 		},

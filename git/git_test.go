@@ -543,7 +543,7 @@ func (gitSuite *gitTestSuite) TestIndexFileDoesNotContainNewlines() {
 
 	file, err := os.Open(indexFilePath)
 	gitSuite.Require().Nil(err)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	lineNumber := 0
