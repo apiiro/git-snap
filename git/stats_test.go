@@ -71,8 +71,9 @@ func (s *statsTestSuite) TestStatsForRegularCommit() {
 	s.Require().Greater(javaStats.NumberOfFiles, 0, "should have Java files")
 	s.Require().Greater(javaStats.LinesOfCode, float64(0), "should have lines of code")
 
-	// Verify total file count
+	// Verify total file count and snapshot size
 	s.Require().Greater(result.TotalFileCount, 0, "should have files")
+	s.Require().Greater(result.SnapshotSizeInMb, 0, "should have non-zero snapshot size")
 }
 
 func (s *statsTestSuite) TestStatsForMasterBranch() {
@@ -97,6 +98,7 @@ func (s *statsTestSuite) TestStatsForMasterBranch() {
 
 	s.Require().Contains(result.CountersByLanguage, "java")
 	s.Require().Greater(result.TotalFileCount, 0)
+	s.Require().Greater(result.SnapshotSizeInMb, 0, "should have non-zero snapshot size")
 }
 
 func (s *statsTestSuite) TestStatsForNonExistentRevision() {

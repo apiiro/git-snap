@@ -544,6 +544,7 @@ func (provider *repositoryProvider) processFileForStats(file *object.File, name 
 
 // writeStatsOutput writes the collected stats to the output path as JSON.
 func (provider *repositoryProvider) writeStatsOutput(outputPath string) error {
+	provider.statsCollector.Finalize()
 	jsonData, err := json.MarshalIndent(provider.statsCollector, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal stats to JSON: %v", err)

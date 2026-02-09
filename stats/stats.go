@@ -7,6 +7,7 @@ type CodeStats struct {
 	CountersByLanguage map[string]*LanguageStats `json:"countersByLanguage"`
 	TotalFileCount     int                       `json:"totalFileCount"`
 	SnapshotSizeInMb   int                       `json:"snapshotSizeInMb"`
+	totalSizeBytes     int64
 }
 
 // LanguageStats represents statistics for a specific language
@@ -24,9 +25,10 @@ func NewCodeStats() *CodeStats {
 	}
 }
 
-// AddFile adds a file's stats to the appropriate language bucket
+// AddFile adds a file's stats to the appropriate language bucket and accumulates total size
 func (cs *CodeStats) AddFile(language string, linesOfCode int, sizeBytes int64) {
 	cs.TotalFileCount++
+	cs.totalSizeBytes += sizeBytes
 
 	if _, exists := cs.CountersByLanguage[language]; !exists {
 		cs.CountersByLanguage[language] = &LanguageStats{
@@ -39,9 +41,9 @@ func (cs *CodeStats) AddFile(language string, linesOfCode int, sizeBytes int64) 
 	cs.CountersByLanguage[language].LinesOfCode += float64(linesOfCode)
 }
 
-// SetSnapshotSize sets the total snapshot size in MB (rounded to nearest integer)
-func (cs *CodeStats) SetSnapshotSize(totalBytes int64) {
-	megabytes := float64(totalBytes) / (1024 * 1024)
+// Finalize calculates derived fields (e.g. snapshot size in MB) from accumulated data
+func (cs *CodeStats) Finalize() {
+	megabytes := float64(cs.totalSizeBytes) / (1024 * 1024)
 	cs.SnapshotSizeInMb = int(math.Round(megabytes))
 }
 
