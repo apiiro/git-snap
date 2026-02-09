@@ -11,13 +11,8 @@ type CodeStats struct {
 
 // LanguageStats represents statistics for a specific language
 type LanguageStats struct {
-	NumberOfFiles int           `json:"numberOfFiles"`
-	Total         *CodeCounters `json:"total"`
-}
-
-// CodeCounters represents code metrics
-type CodeCounters struct {
-	LinesOfCode float64 `json:"linesOfCode"`
+	NumberOfFiles int     `json:"numberOfFiles"`
+	LinesOfCode   float64 `json:"linesOfCode"`
 }
 
 // NewCodeStats creates a new CodeStats instance with initialized maps
@@ -36,12 +31,12 @@ func (cs *CodeStats) AddFile(language string, linesOfCode int, sizeBytes int64) 
 	if _, exists := cs.CountersByLanguage[language]; !exists {
 		cs.CountersByLanguage[language] = &LanguageStats{
 			NumberOfFiles: 0,
-			Total:         &CodeCounters{LinesOfCode: 0},
+			LinesOfCode:   0,
 		}
 	}
 
 	cs.CountersByLanguage[language].NumberOfFiles++
-	cs.CountersByLanguage[language].Total.LinesOfCode += float64(linesOfCode)
+	cs.CountersByLanguage[language].LinesOfCode += float64(linesOfCode)
 }
 
 // SetSnapshotSize sets the total snapshot size in MB (rounded to nearest integer)

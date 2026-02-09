@@ -69,7 +69,7 @@ func (s *statsTestSuite) TestStatsForRegularCommit() {
 	javaStats := result.CountersByLanguage["java"]
 	s.Require().NotNil(javaStats)
 	s.Require().Greater(javaStats.NumberOfFiles, 0, "should have Java files")
-	s.Require().Greater(javaStats.Total.LinesOfCode, float64(0), "should have lines of code")
+	s.Require().Greater(javaStats.LinesOfCode, float64(0), "should have lines of code")
 
 	// Verify total file count
 	s.Require().Greater(result.TotalFileCount, 0, "should have files")
@@ -142,7 +142,6 @@ func (s *statsTestSuite) TestStatsOutputFormat() {
 	for lang, langStats := range result.CountersByLanguage {
 		s.Require().NotNil(langStats, "language stats for %s should not be nil", lang)
 		s.Require().GreaterOrEqual(langStats.NumberOfFiles, 1, "numberOfFiles for %s should be >= 1", lang)
-		s.Require().NotNil(langStats.Total, "total counters for %s should not be nil", lang)
-		s.Require().GreaterOrEqual(langStats.Total.LinesOfCode, float64(0), "linesOfCode for %s should be >= 0", lang)
+		s.Require().GreaterOrEqual(langStats.LinesOfCode, float64(0), "linesOfCode for %s should be >= 0", lang)
 	}
 }
