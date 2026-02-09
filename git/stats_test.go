@@ -49,7 +49,7 @@ func (s *statsTestSuite) TestStatsForRegularCommit() {
 		ClonePath:      s.clonePath,
 		Revision:       "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
 		OutputPath:     outputFile,
-		Stats:          true,
+		StatsOnly:      true,
 		VerboseLogging: true,
 	})
 	s.Require().Nil(err)
@@ -83,7 +83,7 @@ func (s *statsTestSuite) TestStatsForMasterBranch() {
 		ClonePath:      s.clonePath,
 		Revision:       "master",
 		OutputPath:     outputFile,
-		Stats:          true,
+		StatsOnly:      true,
 		VerboseLogging: false,
 	})
 	s.Require().Nil(err)
@@ -107,7 +107,7 @@ func (s *statsTestSuite) TestStatsForNonExistentRevision() {
 		ClonePath:      s.clonePath,
 		Revision:       "nonexistent-revision",
 		OutputPath:     outputFile,
-		Stats:          true,
+		StatsOnly:      true,
 		VerboseLogging: false,
 	})
 	s.Require().NotNil(err, "should fail for non-existent revision")
@@ -121,7 +121,7 @@ func (s *statsTestSuite) TestStatsOutputFormat() {
 		ClonePath:      s.clonePath,
 		Revision:       "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
 		OutputPath:     outputFile,
-		Stats:          true,
+		StatsOnly:      true,
 		VerboseLogging: false,
 	})
 	s.Require().Nil(err)

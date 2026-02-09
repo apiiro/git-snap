@@ -106,7 +106,7 @@ var Flags = []cli.Flag{
 		Required: false,
 	},
 	&cli.BoolFlag{
-		Name:     "stats",
+		Name:     "stats-only",
 		Value:    false,
 		Usage:    "calculate repository statistics (LOC, file count, size per language) and output as JSON instead of snapshotting files",
 		Required: false,
@@ -129,7 +129,7 @@ type Options struct {
 	SkipDoubleCheck       bool
 	IncludeNoiseDirs      bool
 	PathsFileLocation string
-	Stats             bool
+	StatsOnly         bool
 }
 
 func splitListFlag(flag string) []string {
@@ -177,7 +177,7 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		OptionalIndexFilePath: c.String("index"),
 		IndexOnly:             c.Bool("index-only"),
 		PathsFileLocation: c.String("paths-file-location"),
-		Stats:             c.Bool("stats"),
+		StatsOnly:         c.Bool("stats-only"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)
@@ -196,7 +196,7 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		}
 	}
 
-	if !opts.IndexOnly && !opts.Stats {
+	if !opts.IndexOnly && !opts.StatsOnly {
 		err = validateDirectory(opts.OutputPath, true)
 		if err != nil {
 			return nil, &util.ErrorWithCode{

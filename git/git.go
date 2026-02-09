@@ -63,7 +63,7 @@ func Snapshot(opts *options.Options) (err error) {
 
 	// For stats mode, add complexity tool patterns to exclude patterns
 	excludePatterns := opts.ExcludePatterns
-	if opts.Stats {
+	if opts.StatsOnly {
 		excludePatterns = append(excludePatterns, getStatsExcludePatterns()...)
 	}
 	provider.excludePatterns, err = provider.compileGlobs(excludePatterns, "exclude")
@@ -72,7 +72,7 @@ func Snapshot(opts *options.Options) (err error) {
 	}
 
 	// Initialize stats collector if in stats mode
-	if opts.Stats {
+	if opts.StatsOnly {
 		provider.statsCollector = stats.NewCodeStats()
 	}
 
@@ -102,14 +102,14 @@ func Snapshot(opts *options.Options) (err error) {
 		return err
 	}
 
-	if opts.Stats {
+	if opts.StatsOnly {
 		log.Printf("calculating stats for commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 	} else {
 		log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
 	}
 
 	var totalCount, writtenCount int
-	if opts.SkipDoubleCheck || opts.Stats {
+	if opts.SkipDoubleCheck || opts.StatsOnly {
 		// Stats mode doesn't need discrepancy detection
 		totalCount, writtenCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 		if err != nil {
@@ -161,7 +161,7 @@ func Snapshot(opts *options.Options) (err error) {
 	}
 
 	// Handle stats output
-	if opts.Stats {
+	if opts.StatsOnly {
 		return provider.writeStatsOutput(opts.OutputPath)
 	}
 

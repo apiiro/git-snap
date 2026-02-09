@@ -50,7 +50,7 @@ EXIT CODES:
 				return err
 			}
 			err = git.Snapshot(opts)
-			if err == nil && !opts.Stats {
+			if err == nil && !opts.StatsOnly {
 				log.Printf("Completed successfully at %v", opts.OutputPath)
 			}
 			return err
