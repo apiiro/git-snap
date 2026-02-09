@@ -49,13 +49,9 @@ EXIT CODES:
 			if err != nil {
 				return err
 			}
-			if opts.Stats {
-				err = git.Stats(opts)
-			} else {
-				err = git.Snapshot(opts)
-				if err == nil {
-					log.Printf("Completed successfully at %v", opts.OutputPath)
-				}
+			err = git.Snapshot(opts)
+			if err == nil && !opts.Stats {
+				log.Printf("Completed successfully at %v", opts.OutputPath)
 			}
 			return err
 		},

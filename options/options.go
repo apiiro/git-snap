@@ -111,12 +111,6 @@ var Flags = []cli.Flag{
 		Usage:    "calculate repository statistics (LOC, file count, size per language) and output as JSON instead of snapshotting files",
 		Required: false,
 	},
-	&cli.BoolFlag{
-		Name:     "stats-no-filter",
-		Value:    false,
-		Usage:    "when using --stats, skip default exclusion filters (include all files with recognized extensions)",
-		Required: false,
-	},
 }
 
 type Options struct {
@@ -134,9 +128,8 @@ type Options struct {
 	MaxFileSizeBytes      int64
 	SkipDoubleCheck       bool
 	IncludeNoiseDirs      bool
-	PathsFileLocation     string
-	Stats                 bool
-	StatsNoFilter         bool
+	PathsFileLocation string
+	Stats             bool
 }
 
 func splitListFlag(flag string) []string {
@@ -183,9 +176,8 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		IncludeNoiseDirs:      c.Bool("include-noise-dirs"),
 		OptionalIndexFilePath: c.String("index"),
 		IndexOnly:             c.Bool("index-only"),
-		PathsFileLocation:     c.String("paths-file-location"),
-		Stats:                 c.Bool("stats"),
-		StatsNoFilter:         c.Bool("stats-no-filter"),
+		PathsFileLocation: c.String("paths-file-location"),
+		Stats:             c.Bool("stats"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)

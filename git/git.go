@@ -2,9 +2,11 @@ package git
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"gitsnap/options"
+	"gitsnap/stats"
 	"gitsnap/util"
 	"io"
 	"log"
@@ -38,6 +40,8 @@ type repositoryProvider struct {
 	excludePatterns []glob.Glob
 	fileListToSnap  map[string]bool
 	opts            *options.Options
+	// Stats mode fields
+	statsCollector *stats.CodeStats
 }
 
 func Snapshot(opts *options.Options) (err error) {
@@ -56,9 +60,20 @@ func Snapshot(opts *options.Options) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to compile include patterns '%v': %v", opts.IncludePatterns, err)
 	}
-	provider.excludePatterns, err = provider.compileGlobs(opts.ExcludePatterns, "exclude")
+
+	// For stats mode, add complexity tool patterns to exclude patterns
+	excludePatterns := opts.ExcludePatterns
+	if opts.Stats {
+		excludePatterns = append(excludePatterns, getStatsExcludePatterns()...)
+	}
+	provider.excludePatterns, err = provider.compileGlobs(excludePatterns, "exclude")
 	if err != nil {
-		return fmt.Errorf("failed to compile exclude patterns '%v': %v", opts.ExcludePatterns, err)
+		return fmt.Errorf("failed to compile exclude patterns '%v': %v", excludePatterns, err)
+	}
+
+	// Initialize stats collector if in stats mode
+	if opts.Stats {
+		provider.statsCollector = stats.NewCodeStats()
 	}
 
 	provider.repository, err = git.PlainOpen(opts.ClonePath)
@@ -87,10 +102,15 @@ func Snapshot(opts *options.Options) (err error) {
 		return err
 	}
 
-	log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
+	if opts.Stats {
+		log.Printf("calculating stats for commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
+	} else {
+		log.Printf("snapshotting commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
+	}
 
 	var totalCount, writtenCount int
-	if opts.SkipDoubleCheck {
+	if opts.SkipDoubleCheck || opts.Stats {
+		// Stats mode doesn't need discrepancy detection
 		totalCount, writtenCount, err = provider.snapshot(provider.repository, commit, opts.OutputPath, opts.OptionalIndexFilePath, opts.IndexOnly, false)
 		if err != nil {
 			return err
@@ -138,6 +158,11 @@ func Snapshot(opts *options.Options) (err error) {
 				}
 			}
 		}
+	}
+
+	// Handle stats output
+	if opts.Stats {
+		return provider.writeStatsOutput(opts.OutputPath)
 	}
 
 	log.Printf("written %v files (out of %v total) to target path '%v'", writtenCount, totalCount, opts.OutputPath)
@@ -451,6 +476,14 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 				continue
 			}
 
+			// Stats mode: calculate LOC and collect stats instead of writing files
+			if provider.statsCollector != nil {
+				if err := provider.processFileForStats(file, name); err != nil {
+					provider.verboseLog("warning: failed to process stats for %s: %v", name, err)
+				}
+				continue
+			}
+
 			// Write files if not indexOnly
 			if !indexOnly {
 				written, err := provider.writeFile(file, name, outputPath)
@@ -478,4 +511,49 @@ func (provider *repositoryProvider) isSymlink(filePath string, mode filemode.Fil
 		return false
 	}
 	return osMode&os.ModeSymlink != 0
+}
+
+// processFileForStats processes a file for stats collection.
+// Checks language extension, calculates LOC, and adds to stats collector.
+func (provider *repositoryProvider) processFileForStats(file *object.File, name string) error {
+	// Check if extension maps to a known language
+	ext := filepath.Ext(name)
+	language, found := stats.GetLanguageFromExtension(ext)
+	if !found {
+		provider.verboseLog("--- skipping '%v' for stats - unrecognized extension '%v'", name, ext)
+		return nil
+	}
+
+	// Check file size (stats mode uses fixed 6MB limit like complexity tool)
+	if file.Size > statsMaxFileSizeBytes {
+		provider.verboseLog("--- skipping '%v' for stats - file too large (%v MB)", name, file.Size/(1024*1024))
+		return nil
+	}
+
+	// Count lines of code
+	linesOfCode, err := countLinesOfCode(&file.Blob, language)
+	if err != nil {
+		return err
+	}
+
+	provider.statsCollector.AddFile(language, linesOfCode, file.Size)
+
+	provider.verboseLog("processed '%v': language=%v, loc=%v, size=%v", name, language, linesOfCode, file.Size)
+	return nil
+}
+
+// writeStatsOutput writes the collected stats to the output path as JSON.
+func (provider *repositoryProvider) writeStatsOutput(outputPath string) error {
+	jsonData, err := json.MarshalIndent(provider.statsCollector, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal stats to JSON: %v", err)
+	}
+
+	err = os.WriteFile(outputPath, jsonData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write stats to '%v': %v", outputPath, err)
+	}
+
+	log.Printf("stats written to '%v': %d files, %d MB total", outputPath, provider.statsCollector.TotalFileCount, provider.statsCollector.SnapshotSizeInMb)
+	return nil
 }

@@ -1,26 +1,17 @@
 package git
 
 import (
-	"encoding/json"
 	"fmt"
-	"gitsnap/options"
-	"gitsnap/stats"
 	"gitsnap/util"
 	"io"
-	"log"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/gobwas/glob"
 	"golang.org/x/net/html/charset"
 )
 
-// maxFileSizeBytes matches the complexity tool's default max file size (6 MB)
-const maxFileSizeBytes = 6 * 1024 * 1024
+// statsMaxFileSizeBytes matches the complexity tool's default max file size (6 MB)
+const statsMaxFileSizeBytes int64 = 6 * 1024 * 1024
 
 // complexityToolExcludePatterns matches the complexity tool's default excludes
 var complexityToolExcludePatterns = []string{
@@ -63,191 +54,6 @@ func getStatsExcludePatterns() []string {
 	patterns = append(patterns, complexityToolExcludeSuffixes...)
 
 	return patterns
-}
-
-// Stats calculates repository statistics (LOC, file count, size per language)
-// and outputs them as JSON to the specified output path.
-// By default, uses the same exclusion patterns as the complexity tool.
-// Use --stats-no-filter to skip all exclusions.
-func Stats(opts *options.Options) error {
-	repository, err := git.PlainOpen(opts.ClonePath)
-	if err != nil {
-		return &util.ErrorWithCode{
-			StatusCode:    util.ERROR_BAD_CLONE_GIT,
-			InternalError: err,
-		}
-	}
-
-	hash, err := repository.ResolveRevision(plumbing.Revision(opts.Revision))
-	if err != nil {
-		return &util.ErrorWithCode{
-			StatusCode:    util.ERROR_NO_REVISION,
-			InternalError: fmt.Errorf("failed to get revision '%v': %v", opts.Revision, err),
-		}
-	}
-
-	commit, err := repository.CommitObject(*hash)
-	if err != nil {
-		return &util.ErrorWithCode{
-			StatusCode:    util.ERROR_NO_REVISION,
-			InternalError: fmt.Errorf("failed to get commit for '%v': %v", opts.Revision, err),
-		}
-	}
-
-	log.Printf("calculating stats for commit '%v' for revision '%v' at clone '%v'", commit.ID(), opts.Revision, opts.ClonePath)
-
-	// Compile exclude patterns (use git-snap + complexity tool defaults unless --stats-no-filter is set)
-	var excludePatterns []glob.Glob
-	if !opts.StatsNoFilter {
-		allPatterns := getStatsExcludePatterns()
-		excludePatterns, err = compileStatsGlobs(allPatterns)
-		if err != nil {
-			return fmt.Errorf("failed to compile exclude patterns: %v", err)
-		}
-		if opts.VerboseLogging {
-			log.Printf("%d exclude patterns (git-snap + complexity tool defaults)", len(allPatterns))
-		}
-	} else {
-		if opts.VerboseLogging {
-			log.Printf("--stats-no-filter: skipping all exclusion filters")
-		}
-	}
-
-	tree, err := commit.Tree()
-	if err != nil {
-		return &util.ErrorWithCode{
-			StatusCode:    util.ERROR_TREE_NOT_FOUND,
-			InternalError: fmt.Errorf("failed to get tree of commit '%v': %v", commit.Hash, err),
-		}
-	}
-
-	codeStats := stats.NewCodeStats()
-	var totalSizeBytes int64
-
-	treeWalker := object.NewTreeWalker(tree, true, nil)
-	defer treeWalker.Close()
-
-	for {
-		name, entry, walkErr := treeWalker.Next()
-		if walkErr == io.EOF {
-			break
-		}
-		if walkErr != nil {
-			return fmt.Errorf("failed to iterate files of %v: %v", commit.Hash, walkErr)
-		}
-
-		// 1. Only process files (skip directories) - no blob needed
-		if !entry.Mode.IsFile() {
-			continue
-		}
-
-		// 2. Check exclude patterns BEFORE getting blob (same order as snapshot)
-		if !opts.StatsNoFilter && matchesGlob(name, excludePatterns) {
-			if opts.VerboseLogging {
-				log.Printf("skipping '%v' - excluded by patterns", name)
-			}
-			continue
-		}
-
-		// 3. Check extension BEFORE getting blob (same as snapshot's TextFilesOnly check)
-		ext := filepath.Ext(name)
-		language, found := stats.GetLanguageFromExtension(ext)
-		if !found {
-			// Skip files with unrecognized extensions
-			if opts.VerboseLogging {
-				log.Printf("skipping '%v' - unrecognized extension '%v'", name, ext)
-			}
-			continue
-		}
-
-		// 4. NOW get blob (only for files that passed pattern and extension checks)
-		blob, err := object.GetBlob(repository.Storer, entry.Hash)
-		if err != nil {
-			if opts.VerboseLogging {
-				log.Printf("warning: can't get blob %s: %s (skipping)", name, err)
-			}
-			continue
-		}
-
-		fileSize := blob.Size
-		totalSizeBytes += fileSize
-
-		// 5. Check file size (same as complexity tool default: 6 MB)
-		if !opts.StatsNoFilter && fileSize > maxFileSizeBytes {
-			if opts.VerboseLogging {
-				log.Printf("skipping '%v' - file too large (%v MB)", name, fileSize/(1024*1024))
-			}
-			continue
-		}
-
-		// 6. Count lines of code (using same logic as complexity tool)
-		linesOfCode, err := countLinesOfCode(blob, language)
-		if err != nil {
-			if opts.VerboseLogging {
-				log.Printf("warning: failed to count lines for %s: %v (using 0)", name, err)
-			}
-			linesOfCode = 0
-		}
-
-		codeStats.AddFile(language, linesOfCode, fileSize)
-
-		if opts.VerboseLogging {
-			log.Printf("processed '%v': language=%v, loc=%v, size=%v", name, language, linesOfCode, fileSize)
-		}
-	}
-
-	codeStats.SetSnapshotSize(totalSizeBytes)
-
-	// Write JSON output
-	jsonData, err := json.MarshalIndent(codeStats, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal stats to JSON: %v", err)
-	}
-
-	err = os.WriteFile(opts.OutputPath, jsonData, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write stats to '%v': %v", opts.OutputPath, err)
-	}
-
-	log.Printf("stats written to '%v': %d files, %d MB total", opts.OutputPath, codeStats.TotalFileCount, codeStats.SnapshotSizeInMb)
-	return nil
-}
-
-// compileStatsGlobs compiles glob patterns for stats exclusion
-func compileStatsGlobs(patterns []string) ([]glob.Glob, error) {
-	patterns = expandStatsPatterns(patterns)
-	globs := make([]glob.Glob, len(patterns))
-	for i, pattern := range patterns {
-		compiled, err := glob.Compile(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile pattern '%v': %v", pattern, err)
-		}
-		globs[i] = compiled
-	}
-	return globs, nil
-}
-
-// expandStatsPatterns expands patterns that start with */ or **/ to also match without prefix
-func expandStatsPatterns(patterns []string) []string {
-	for _, pattern := range patterns {
-		if strings.HasPrefix(pattern, "*/") {
-			patterns = append(patterns, strings.Replace(pattern, "*/", "", 1))
-		}
-		if strings.HasPrefix(pattern, "**/") {
-			patterns = append(patterns, strings.Replace(pattern, "**/", "", 1))
-		}
-	}
-	return patterns
-}
-
-// matchesGlob checks if a file path matches any of the glob patterns
-func matchesGlob(filePath string, patterns []glob.Glob) bool {
-	for _, pattern := range patterns {
-		if pattern.Match(filePath) {
-			return true
-		}
-	}
-	return false
 }
 
 // countLinesOfCode counts lines of code using the same logic as the complexity tool:

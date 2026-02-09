@@ -45,10 +45,11 @@ func (s *statsTestSuite) TestStatsForRegularCommit() {
 	outputFile := filepath.Join(os.TempDir(), "stats-test.json")
 	defer func() { _ = os.Remove(outputFile) }()
 
-	err := Stats(&options.Options{
+	err := Snapshot(&options.Options{
 		ClonePath:      s.clonePath,
 		Revision:       "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
 		OutputPath:     outputFile,
+		Stats:          true,
 		VerboseLogging: true,
 	})
 	s.Require().Nil(err)
@@ -78,10 +79,11 @@ func (s *statsTestSuite) TestStatsForMasterBranch() {
 	outputFile := filepath.Join(os.TempDir(), "stats-test-master.json")
 	defer func() { _ = os.Remove(outputFile) }()
 
-	err := Stats(&options.Options{
+	err := Snapshot(&options.Options{
 		ClonePath:      s.clonePath,
 		Revision:       "master",
 		OutputPath:     outputFile,
+		Stats:          true,
 		VerboseLogging: false,
 	})
 	s.Require().Nil(err)
@@ -101,10 +103,11 @@ func (s *statsTestSuite) TestStatsForNonExistentRevision() {
 	outputFile := filepath.Join(os.TempDir(), "stats-test-invalid.json")
 	defer func() { _ = os.Remove(outputFile) }()
 
-	err := Stats(&options.Options{
+	err := Snapshot(&options.Options{
 		ClonePath:      s.clonePath,
 		Revision:       "nonexistent-revision",
 		OutputPath:     outputFile,
+		Stats:          true,
 		VerboseLogging: false,
 	})
 	s.Require().NotNil(err, "should fail for non-existent revision")
@@ -114,10 +117,11 @@ func (s *statsTestSuite) TestStatsOutputFormat() {
 	outputFile := filepath.Join(os.TempDir(), "stats-test-format.json")
 	defer func() { _ = os.Remove(outputFile) }()
 
-	err := Stats(&options.Options{
+	err := Snapshot(&options.Options{
 		ClonePath:      s.clonePath,
 		Revision:       "2ca742044ba451d00c6854a465fdd4280d9ad1f5",
 		OutputPath:     outputFile,
+		Stats:          true,
 		VerboseLogging: false,
 	})
 	s.Require().Nil(err)
@@ -142,4 +146,3 @@ func (s *statsTestSuite) TestStatsOutputFormat() {
 		s.Require().GreaterOrEqual(langStats.Total.LinesOfCode, float64(0), "linesOfCode for %s should be >= 0", lang)
 	}
 }
-
