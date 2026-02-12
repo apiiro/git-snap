@@ -18,7 +18,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/avast/retry-go"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
@@ -42,6 +41,7 @@ type repositoryProvider struct {
 	opts            *options.Options
 	// Stats mode fields
 	statsCollector *stats.CodeStats
+	createdDirs    map[string]bool
 }
 
 func Snapshot(opts *options.Options) (err error) {
@@ -49,6 +49,7 @@ func Snapshot(opts *options.Options) (err error) {
 	provider := &repositoryProvider{
 		opts:           opts,
 		fileListToSnap: map[string]bool{},
+		createdDirs:    map[string]bool{},
 	}
 
 	err = loadFilePathsList(opts, provider)
@@ -253,20 +254,19 @@ func (provider *repositoryProvider) verboseLog(format string, v ...interface{}) 
 	}
 }
 
-// shouldWriteFile checks if a file should be included in the snapshot based on filters.
-// Returns (shouldWrite, file, error) - file is non-nil only when shouldWrite is true.
-func (provider *repositoryProvider) shouldWriteFile(repository *git.Repository, name string, entry *object.TreeEntry) (bool, *object.File, error) {
+// shouldIncludeFile checks if a file should be included based on cheap filters (no blob access needed).
+func (provider *repositoryProvider) shouldIncludeFile(name string, entry *object.TreeEntry) bool {
 	filePath := name
 	mode := entry.Mode
 
 	if !mode.IsFile() || mode.IsMalformed() || provider.isSymlink(filePath, mode) {
 		provider.verboseLog("--- skipping '%v' - not regular file - mode: %v", filePath, mode)
-		return false, nil, nil
+		return false
 	}
 
 	if !utf8.ValidString(filePath) {
 		provider.verboseLog("--- skipping '%v' - file path is not a valid UTF-8 string", filePath)
-		return false, nil, nil
+		return false
 	}
 
 	filePathToCheck := filePath
@@ -276,25 +276,43 @@ func (provider *repositoryProvider) shouldWriteFile(repository *git.Repository, 
 
 	if !isFileInList(provider, filePathToCheck) {
 		provider.verboseLog("--- skipping '%v' - not matching file list", filePath)
-		return false, nil, nil
+		return false
 	}
 
 	skip := true
 	hasIncludePatterns := len(provider.includePatterns) > 0
 	if hasIncludePatterns && !matches(filePathToCheck, provider.includePatterns) {
 		provider.verboseLog("--- skipping '%v' - not matching include patterns", filePath)
-		return false, nil, nil
+		return false
 	} else if hasIncludePatterns {
 		skip = false
 	}
 
 	if len(provider.excludePatterns) > 0 && matches(filePathToCheck, provider.excludePatterns) && skip {
 		provider.verboseLog("--- skipping '%v' - matching exclude patterns", filePath)
-		return false, nil, nil
+		return false
 	}
 
 	if provider.opts.TextFilesOnly && util.NotTextExt(filepath.Ext(filePathToCheck)) {
 		provider.verboseLog("--- skipping '%v' - not a text file", filePath)
+		return false
+	}
+
+	fileName := filepath.Base(filePath)
+
+	if len(fileName) > 255 || len(filePath) > 4095 {
+		log.Printf("--- skipping '%v' - file name is too long to snapshot", filePath)
+		return false
+	}
+
+	return true
+}
+
+// shouldWriteFile checks if a file should be included in the snapshot based on filters.
+// Returns (shouldWrite, file, error) - file is non-nil only when shouldWrite is true.
+// This performs blob access for the size check, so use shouldIncludeFile when blob access is not needed.
+func (provider *repositoryProvider) shouldWriteFile(repository *git.Repository, name string, entry *object.TreeEntry) (bool, *object.File, error) {
+	if !provider.shouldIncludeFile(name, entry) {
 		return false, nil, nil
 	}
 
@@ -306,18 +324,24 @@ func (provider *repositoryProvider) shouldWriteFile(repository *git.Repository, 
 	file := object.NewFile(name, entry.Mode, blob)
 
 	if provider.opts.MaxFileSizeBytes > 0 && file.Size >= provider.opts.MaxFileSizeBytes {
-		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", filePath, file.Size)
-		return false, nil, nil
-	}
-
-	fileName := filepath.Base(filePath)
-
-	if len(fileName) > 255 || len(filePath) > 4095 {
-		log.Printf("--- skipping '%v' - file name is too long to snapshot", filePath)
+		log.Printf("--- skipping '%v' - file size is too large to snapshot - %v", name, file.Size)
 		return false, nil, nil
 	}
 
 	return true, file, nil
+}
+
+// ensureDir creates the directory if it hasn't been created already (cached).
+func (provider *repositoryProvider) ensureDir(dirPath string) error {
+	if provider.createdDirs[dirPath] {
+		return nil
+	}
+	err := os.MkdirAll(dirPath, TARGET_PERMISSIONS)
+	if err != nil {
+		return err
+	}
+	provider.createdDirs[dirPath] = true
+	return nil
 }
 
 // writeFile writes the file contents to the target path. Called only after shouldWriteFile returns true.
@@ -326,7 +350,7 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 	targetFilePath := filepath.Join(outputPath, filePath)
 	targetDirectoryPath := filepath.Dir(targetFilePath)
 
-	err := os.MkdirAll(targetDirectoryPath, TARGET_PERMISSIONS)
+	err := provider.ensureDir(targetDirectoryPath)
 	if err != nil {
 		if errors.Is(err, syscall.ENAMETOOLONG) {
 			log.Printf("--- skipping '%v' - path component too long for filesystem (ENAMETOOLONG)", targetDirectoryPath)
@@ -339,21 +363,17 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 		return false, fmt.Errorf("failed to create target directory at '%v': %v", targetDirectoryPath, err)
 	}
 
-	var contents string
-	err = retry.Do(
-		func() error {
-			var contentsErr error
-			contents, contentsErr = file.Contents()
-			return contentsErr
-		},
-	)
+	reader, err := file.Reader()
 	if err != nil {
-		return false, fmt.Errorf("failed to get git file contents for '%v': %v", filePath, err)
+		return false, fmt.Errorf("failed to get git file reader for '%v': %v", filePath, err)
 	}
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil {
+			log.Printf("warning: failed to close git file reader for '%v': %v", filePath, closeErr)
+		}
+	}()
 
-	contentsBytes := []byte(contents)
-
-	err = os.WriteFile(targetFilePath, contentsBytes, TARGET_PERMISSIONS)
+	f, err := os.OpenFile(targetFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, TARGET_PERMISSIONS)
 	if err != nil {
 		if errors.Is(err, syscall.ENAMETOOLONG) {
 			log.Printf("--- skipping '%v' - path component too long for filesystem (ENAMETOOLONG)", targetFilePath)
@@ -363,7 +383,17 @@ func (provider *repositoryProvider) writeFile(file *object.File, filePath string
 			log.Printf("--- skipping '%v' - path contains invalid characters (EINVAL)", targetFilePath)
 			return false, nil // Skipped, not written
 		}
-		return false, fmt.Errorf("failed to write target file of '%v' to '%v': %v", filePath, targetFilePath, err)
+		return false, fmt.Errorf("failed to create target file '%v': %v", targetFilePath, err)
+	}
+	_, err = io.Copy(f, reader)
+	if err != nil {
+		if closeErr := f.Close(); closeErr != nil {
+			log.Printf("warning: failed to close target file after write error '%v': %v", targetFilePath, closeErr)
+		}
+		return false, fmt.Errorf("failed to write file contents for '%v' to '%v': %v", filePath, targetFilePath, err)
+	}
+	if closeErr := f.Close(); closeErr != nil {
+		return false, fmt.Errorf("failed to close target file '%v': %v", targetFilePath, closeErr)
 	}
 
 	provider.verboseLog("+++ '%v' to '%v'", filePath, targetFilePath)
@@ -391,7 +421,6 @@ func addEntryToIndexFile(indexFile *csv.Writer, name string, entry *object.TreeE
 		if err != nil {
 			return err
 		}
-		indexFile.Flush()
 	}
 	return nil
 }
@@ -440,6 +469,12 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 	for {
 		name, entry, walkErr := treeWalker.Next()
 		if walkErr == io.EOF {
+			if indexOutputFile != nil {
+				indexOutputFile.Flush()
+				if flushErr := indexOutputFile.Error(); flushErr != nil {
+					return 0, 0, fmt.Errorf("failed to flush index file '%v': %v", optionalIndexFilePath, flushErr)
+				}
+			}
 			return totalCount, writtenCount, nil
 		}
 
@@ -457,35 +492,39 @@ func (provider *repositoryProvider) snapshot(repository *git.Repository, commit 
 
 		// Process files: apply filters and write
 		if entry.Mode.IsFile() {
-			shouldWrite, file, err := provider.shouldWriteFile(repository, name, &entry)
-			if err != nil {
-				if errors.Is(err, plumbing.ErrObjectNotFound) {
-					log.Printf("Can't get blob %s: %s (ignoring - possible partial clone)", name, err)
+			if indexOnly {
+				// Fast path: skip blob access entirely, only apply cheap filters
+				if !provider.shouldIncludeFile(name, &entry) {
 					continue
-				} else if errors.Is(err, dotgit.ErrPackfileNotFound) {
-					return 0, 0, &util.ErrorWithCode{
-						StatusCode:    util.ERROR_BAD_CLONE_GIT,
-						InternalError: err,
+				}
+			} else {
+				shouldWrite, file, err := provider.shouldWriteFile(repository, name, &entry)
+				if err != nil {
+					if errors.Is(err, plumbing.ErrObjectNotFound) {
+						log.Printf("Can't get blob %s: %s (ignoring - possible partial clone)", name, err)
+						continue
+					} else if errors.Is(err, dotgit.ErrPackfileNotFound) {
+						return 0, 0, &util.ErrorWithCode{
+							StatusCode:    util.ERROR_BAD_CLONE_GIT,
+							InternalError: err,
+						}
+					} else {
+						return 0, 0, fmt.Errorf("failed to check file %s: %v", name, err)
 					}
-				} else {
-					return 0, 0, fmt.Errorf("failed to check file %s: %v", name, err)
 				}
-			}
 
-			if !shouldWrite {
-				continue
-			}
-
-			// Stats mode: calculate LOC and collect stats instead of writing files
-			if provider.statsCollector != nil {
-				if err := provider.processFileForStats(file, name); err != nil {
-					provider.verboseLog("warning: failed to process stats for %s: %v", name, err)
+				if !shouldWrite {
+					continue
 				}
-				continue
-			}
 
-			// Write files if not indexOnly
-			if !indexOnly {
+				// Stats mode: calculate LOC and collect stats instead of writing files
+				if provider.statsCollector != nil {
+					if err := provider.processFileForStats(file, name); err != nil {
+						provider.verboseLog("warning: failed to process stats for %s: %v", name, err)
+					}
+					continue
+				}
+
 				written, err := provider.writeFile(file, name, outputPath)
 				if err != nil {
 					return 0, 0, fmt.Errorf("failed to write file %s: %v", name, err)
