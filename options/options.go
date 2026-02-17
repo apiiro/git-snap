@@ -105,6 +105,12 @@ var Flags = []cli.Flag{
 		Usage:    "a location of a text file with all the paths to snap (one path per line)",
 		Required: false,
 	},
+	&cli.BoolFlag{
+		Name:     "stats-only",
+		Value:    false,
+		Usage:    "calculate repository statistics (LOC, file count, size per language) and output as JSON instead of snapshotting files",
+		Required: false,
+	},
 }
 
 type Options struct {
@@ -122,7 +128,8 @@ type Options struct {
 	MaxFileSizeBytes      int64
 	SkipDoubleCheck       bool
 	IncludeNoiseDirs      bool
-	PathsFileLocation     string
+	PathsFileLocation string
+	StatsOnly         bool
 }
 
 func splitListFlag(flag string) []string {
@@ -169,7 +176,8 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		IncludeNoiseDirs:      c.Bool("include-noise-dirs"),
 		OptionalIndexFilePath: c.String("index"),
 		IndexOnly:             c.Bool("index-only"),
-		PathsFileLocation:     c.String("paths-file-location"),
+		PathsFileLocation: c.String("paths-file-location"),
+		StatsOnly:         c.Bool("stats-only"),
 	}
 
 	err := validateDirectory(opts.ClonePath, false)
@@ -188,7 +196,7 @@ func ParseOptions(c *cli.Context) (*Options, error) {
 		}
 	}
 
-	if !opts.IndexOnly {
+	if !opts.IndexOnly && !opts.StatsOnly {
 		err = validateDirectory(opts.OutputPath, true)
 		if err != nil {
 			return nil, &util.ErrorWithCode{
