@@ -1,6 +1,6 @@
 GOCMD=go
 GOTEST=$(GOCMD) test
-GO_VERSION=1.25
+GO_VERSION=1.25.9
 BINARY_NAME=gitsnap
 
 .PHONY: all test build vendor

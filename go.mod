@@ -1,6 +1,6 @@
 module gitsnap
 
-go 1.25.7
+go 1.25.9
 
 require (
 	github.com/go-git/go-git/v5 v5.13.2
